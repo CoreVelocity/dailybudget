@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -217,6 +216,22 @@ svg text{font-family:var(--f-num);font-size:10px;fill:var(--dim)}
 .gate .mark{width:56px;height:56px;border-radius:16px;margin:0 auto 22px;background:linear-gradient(135deg,var(--electric),var(--hyper));display:grid;place-items:center;font-family:var(--f-dis);font-weight:800;font-size:24px;color:#fff}
 
 
+.diag{text-align:left;margin-top:18px;background:rgba(11,18,32,.6);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.diag h4{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);font-weight:600;margin-bottom:12px}
+.diag .d{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid rgba(130,211,255,.07)}
+.diag .d:last-of-type{border:none}
+.diag .d i{font-style:normal;flex:none;width:16px;text-align:center;font-size:13px}
+.diag .d.ok i{color:var(--good)} .diag .d.no i{color:var(--coral2)}
+.diag .d b{display:block;font-size:13px;font-weight:600;margin-bottom:2px}
+.diag .d p{font-size:12px;color:var(--muted);line-height:1.5}
+.diag .kv{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.diag .kv label{display:block;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:10px 0 5px}
+.diag code{display:block;font-family:var(--f-num);font-size:11.5px;background:rgba(4,8,18,.6);border:1px solid var(--line);
+  border-radius:7px;padding:9px 10px;color:var(--sky);word-break:break-all;line-height:1.45;user-select:all;cursor:text}
+.autherr{background:rgba(240,78,35,.1);border:1px solid rgba(240,78,35,.35);border-radius:var(--rs);
+  padding:13px 15px;margin-bottom:18px;text-align:left;font-size:13px;line-height:1.55;color:var(--pearl)}
+.autherr b{color:var(--coral2)}
+
 /* ══════════ guide typography ══════════ */
 ol.guide,ul.guide{margin:4px 0 0;padding-left:20px}
 ol.guide li,ul.guide li{margin-bottom:11px;font-size:13.5px;line-height:1.6;color:var(--muted);padding-left:4px}
@@ -337,10 +352,13 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   <div class="box">
     <div class="mark">↗</div>
     <h1>Independence</h1>
-    <p>Your transactions, balance sheet and five-year path — synced to your own OneDrive. Sign in with your Microsoft account to load it.</p>
+    <p>Your transactions, balance sheet and five-year path — synced to your own OneDrive. Sign in to load it.</p>
+    <div id="authErr" class="hide"></div>
     <button class="btn pri" id="signIn" style="padding:12px 26px">Sign in with Microsoft</button>
-    <p style="font-size:11.5px;color:var(--dim);margin-top:20px">Data is stored as a single JSON file in your OneDrive. Nothing is sent anywhere else.</p>
-    <button class="btn ghost sm" id="offlineBtn" style="margin-top:14px">Work offline on this device</button>
+    <p style="font-size:11.5px;color:var(--dim);margin-top:16px" id="gateWho"></p>
+    <button class="btn ghost sm" id="offlineBtn" style="margin-top:10px">Work offline on this device</button>
+    <button class="btn ghost sm" id="diagBtn" style="margin-top:10px">Connection check</button>
+    <div id="diagPanel" class="hide"></div>
   </div>
 </div>
 
@@ -361,6 +379,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
       <button class="bell railbell" id="bellDesk"></button>
       <div class="syncdot" id="syncDot"><b></b><span id="syncTxt">Not synced</span></div>
       <button class="btn ghost sm" id="syncNow">Sync now</button>
+      <button class="btn ghost sm" id="signOutBtn">Sign out</button>
       <div style="font-size:10.5px;color:var(--dim);padding:0 10px" id="userLine"></div>
     </div>
   </aside>
@@ -692,6 +711,28 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         </ul>
       </div>
 
+      <div class="card" style="margin-bottom:14px">
+        <h3>Turning on Microsoft sign-in</h3>
+        <div class="sub">If the gate says sign-in is unavailable, one of the first two is the reason</div>
+        <ul class="guide">
+          <li><b>It must be served over https.</b> Opening the file from your disk, or inside a preview pane or sandbox, will never work — Microsoft refuses to sign in on a <i>file://</i> origin, and previews block the sign-in library. Put it on GitHub Pages like your other tools. Press <i>Connection check</i> on the sign-in screen and it will tell you precisely which of these is failing.</li>
+          <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails.</li>
+          <li><b>Consent the permissions.</b> Same app → API permissions → Microsoft Graph → Delegated → add <i>User.Read</i> and <i>Files.ReadWrite.All</i>, then grant consent.</li>
+          <li><b>Then reload the page</b> and sign in. The folder and file are created on first save; you do not need to make them yourself.</li>
+        </ul>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h3>Locking it to one account</h3>
+        <div class="sub">The page is set to ahmed@core-velocity.com — but a page cannot enforce that on its own</div>
+        <ul class="guide">
+          <li><b>In the page.</b> Near the top of the file, <i>CONFIG.allowedUser</i> holds the address. Any other account that signs in is rejected and told why. This is a convenience guard: it keeps the wrong account from quietly syncing into the wrong OneDrive.</li>
+          <li><b>In Entra — this is the real lock.</b> Enterprise applications → your app → Properties → set <i>Assignment required</i> to <b>Yes</b>. Then Users and groups → assign only your account. Now Microsoft itself refuses a token to anyone else, whatever the page says.</li>
+          <li><b>Why both.</b> Anyone who views the page source can change a line of JavaScript. Nobody can change what Entra will issue a token for. Do the second step and the first becomes a courtesy message rather than a security control.</li>
+          <li><b>Your data is separately safe.</b> The file sits in your own OneDrive, so another account would reach their own empty file, not yours.</li>
+        </ul>
+      </div>
+
       <div class="card">
         <h3>Sync, reminders and your data</h3>
         <ul class="guide">
@@ -753,6 +794,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   <button class="sheetlink" data-go="guide"><i>?</i>How to use this</button>
   <button class="sheetlink" data-go="settings"><i>⚙</i>Settings</button>
   <button class="sheetlink" data-sync><i>⟳</i>Sync now</button>
+  <button class="sheetlink" data-signout><i>⏻</i>Sign out</button>
 </div></div>
 <div id="modalHost"></div>
 <div class="toast" id="toast"></div>
@@ -768,7 +810,11 @@ const CONFIG = {
   sharedUpn: 'demo@core-velocity.com',
   folder   : 'Finance',
   fileName : 'finance-data.json',
-  scopes   : ['User.Read','Files.ReadWrite.All']
+  scopes   : ['User.Read','Files.ReadWrite.All'],
+  // Only this account may open the app. Set to null to allow any account.
+  // Note: this is a convenience guard in the page. The real lock is in Entra —
+  // see "Locking it to one account" in the How to use tab.
+  allowedUser: 'ahmed@core-velocity.com'
 };
 const TOMBSTONE_DAYS = 120;
 
@@ -873,6 +919,36 @@ function purgeTombstones(d){
 
 /* ══════════════ MSAL + Graph ══════════════ */
 let MSALAPP = null;
+let AUTH_ERR = null;
+
+const allowedUser = () => (CONFIG.allowedUser||'').toLowerCase().trim();
+function accountAllowed(acct){
+  if (!allowedUser()) return true;
+  return (acct?.username||'').toLowerCase().trim() === allowedUser();
+}
+
+/* why can't we sign in? answer precisely rather than guess */
+function authDiagnosis(){
+  const out = [];
+  const proto = location.protocol;
+  const secure = window.isSecureContext && (proto === 'https:' || location.hostname === 'localhost');
+  if (!secure) out.push({ bad:1, t:'Not a secure origin',
+    d:`This page is running on <b>${esc(proto)}//</b>. Microsoft sign-in requires https (or localhost). Opening the file directly from disk will never work.` });
+  if (typeof msal === 'undefined') out.push({ bad:1, t:'Sign-in library blocked',
+    d:'The Microsoft library at alcdn.msauth.net did not load. Previews and sandboxes usually block it — host the file and it will load.' });
+  if (secure && typeof msal !== 'undefined') out.push({ bad:0, t:'Ready to sign in',
+    d:'Register the redirect URI below on the app registration if you have not already.' });
+  return out;
+}
+const redirectUri = () => location.origin + location.pathname;
+
+async function signOut(){
+  try {
+    if (MSALAPP && MSALAPP.getActiveAccount())
+      await MSALAPP.logoutRedirect({ account: MSALAPP.getActiveAccount(), postLogoutRedirectUri: redirectUri() });
+    else location.reload();
+  } catch(e){ location.reload(); }
+}
 
 function setSync(state, text){
   const d = $('#syncDot'); if (!d) return;
@@ -887,15 +963,25 @@ async function bootAuth(){
   });
   if (MSALAPP.initialize) await MSALAPP.initialize();
   let res = null;
-  try { res = await MSALAPP.handleRedirectPromise(); } catch(e){ console.warn(e); }
-  const acct = res?.account || MSALAPP.getAllAccounts()[0];
-  if (acct){ MSALAPP.setActiveAccount(acct); UI.account = acct; return true; }
-  return false;
+  try { res = await MSALAPP.handleRedirectPromise(); }
+  catch(e){ console.warn(e); AUTH_ERR = e.message || 'Sign-in was not completed.'; }
+
+  const all = MSALAPP.getAllAccounts();
+  const acct = res?.account || all.find(accountAllowed) || all[0];
+  if (!acct) return false;
+
+  if (!accountAllowed(acct)){
+    AUTH_ERR = `Signed in as ${acct.username}. This app is restricted to ${CONFIG.allowedUser}.`;
+    try { MSALAPP.setActiveAccount(null); } catch(e){}
+    return false;
+  }
+  MSALAPP.setActiveAccount(acct); UI.account = acct; return true;
 }
 
 async function getToken(){
   const acct = MSALAPP.getActiveAccount();
   if (!acct) throw new Error('Not signed in');
+  if (!accountAllowed(acct)) throw new Error('Wrong account signed in');
   try {
     const r = await MSALAPP.acquireTokenSilent({ scopes: CONFIG.scopes, account: acct });
     return r.accessToken;
@@ -1910,7 +1996,9 @@ function renderSettings(){
 
   $('#dataStats').innerHTML = `${live('transactions').length} transactions · ${live('accounts').length} accounts ·
     ${live('assets').length} assets · ${live('liabilities').length} liabilities · ${live('recurring').length} recurring ·
-    ${live('funds').length} funds · ${live('targets').length} targets · ${live('rules').length} rules<br>Syncing to <b>${CONFIG.syncMode === 'shared' ? CONFIG.sharedUpn : 'your own OneDrive'}</b> at /${CONFIG.folder}/${CONFIG.fileName}`;
+    ${live('funds').length} funds · ${live('targets').length} targets · ${live('rules').length} rules<br>
+    Syncing to <b>${CONFIG.syncMode === 'shared' ? esc(CONFIG.sharedUpn) : 'your own OneDrive'}</b> at /${CONFIG.folder}/${CONFIG.fileName}
+    ${CONFIG.allowedUser ? `<br>Locked to <b>${esc(CONFIG.allowedUser)}</b>${UI.account?.username ? ` · signed in as ${esc(UI.account.username)}` : ''}` : ''}`;
 }
 
 /* ══════════════ MODAL BUILDER ══════════════ */
@@ -2899,6 +2987,10 @@ function wire(){
     DATA = blankData(); UI.dirty = true; scheduleSave(); renderAll(); toast('Everything erased'); };
 
   $('#syncNow').onclick = () => syncNow();
+  $('#signOutBtn').onclick = async () => {
+    if (UI.dirty) await syncNow(true);
+    if (confirm('Sign out? Anything unsynced is saved first.')) signOut();
+  };
 
   // reminders
   $$('.bell').forEach(b => b.onclick = () => showNudges(true));
@@ -2910,7 +3002,9 @@ function wire(){
     if (e.target === sheet) return sheet.classList.add('hide');
     const l = e.target.closest('.sheetlink'); if (!l) return;
     sheet.classList.add('hide');
-    if (l.hasAttribute('data-sync')) syncNow(); else go(l.dataset.go);
+    if (l.hasAttribute('data-sync')) syncNow();
+    else if (l.hasAttribute('data-signout')) $('#signOutBtn').onclick();
+    else go(l.dataset.go);
   };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#modalHost').innerHTML = ''; });
 }
@@ -2955,21 +3049,54 @@ async function start(online){
   if (online) syncNow(true);
 }
 
+function renderDiag(){
+  const rows = authDiagnosis();
+  $('#diagPanel').innerHTML = `<div class="diag">
+    <h4>Connection check</h4>
+    ${rows.map(r=>`<div class="d ${r.bad?'no':'ok'}"><i>${r.bad?'✕':'✓'}</i><div><b>${esc(r.t)}</b><p>${r.d}</p></div></div>`).join('')}
+    <div class="kv">
+      <label>Redirect URI — paste this into the app registration</label><code>${esc(redirectUri())}</code>
+      <label>Application (client) ID</label><code>${esc(CONFIG.clientId)}</code>
+      <label>Permissions to consent</label><code>${esc(CONFIG.scopes.join('  ·  '))}</code>
+      ${CONFIG.allowedUser ? `<label>Restricted to</label><code>${esc(CONFIG.allowedUser)}</code>` : ''}
+    </div></div>`;
+}
+
 (async () => {
   // wire the escape hatches first, so a sign-in failure can never leave a dead page
   $('#offlineBtn').onclick = () => start(false);
+  $('#diagBtn').onclick = () => { const p = $('#diagPanel'); renderDiag(); p.classList.toggle('hide'); };
+  if (CONFIG.allowedUser)
+    $('#gateWho').innerHTML = `Restricted to <b style="color:var(--sky)">${esc(CONFIG.allowedUser)}</b>. Data is a single JSON file in that account's OneDrive.`;
+  else
+    $('#gateWho').textContent = 'Data is stored as a single JSON file in your OneDrive.';
+
   $('#signIn').onclick = async () => {
-    if (!MSALAPP) return toast('Microsoft sign-in is unavailable here. Use offline mode below.', true);
-    try { await MSALAPP.loginRedirect({ scopes: CONFIG.scopes }); }
-    catch(e){ toast('Sign-in failed: ' + (e.message||''), true); }
+    if (!MSALAPP){ renderDiag(); $('#diagPanel').classList.remove('hide');
+      return toast('Sign-in cannot run here — see the connection check', true); }
+    try {
+      await MSALAPP.loginRedirect({
+        scopes: CONFIG.scopes,
+        loginHint: CONFIG.allowedUser || undefined,
+        prompt: CONFIG.allowedUser ? 'login' : 'select_account'
+      });
+    } catch(e){ toast('Sign-in failed: ' + (e.message||''), true); }
   };
+
   let signedIn = false;
   try { signedIn = await bootAuth(); }
-  catch(e){
-    console.warn('Auth unavailable:', e);
+  catch(e){ console.warn('Auth unavailable:', e); AUTH_ERR = AUTH_ERR || (e.message || 'Sign-in could not start.'); }
+
+  const blocked = authDiagnosis().some(r => r.bad);
+  if (blocked){
+    $('#signIn').disabled = true; $('#signIn').style.opacity = '.45'; $('#signIn').style.cursor = 'not-allowed';
     $('#signIn').textContent = 'Sign-in unavailable here';
-    $('#signIn').disabled = true;
-    $('#signIn').style.opacity = '.5';
+    renderDiag(); $('#diagPanel').classList.remove('hide');
+  }
+  if (AUTH_ERR){
+    $('#authErr').className = 'autherr';
+    $('#authErr').innerHTML = `<b>Could not sign you in.</b><br>${esc(AUTH_ERR)}`;
+    if (MSALAPP) $('#signIn').textContent = 'Sign in as ' + (CONFIG.allowedUser || 'another account');
   }
   if (signedIn) start(true);
 })();
