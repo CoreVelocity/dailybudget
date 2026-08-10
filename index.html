@@ -715,7 +715,9 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <h3>Turning on Microsoft sign-in</h3>
         <div class="sub">If the gate says sign-in is unavailable, one of the first two is the reason</div>
         <ul class="guide">
-          <li><b>It must be served over https.</b> Opening the file from your disk, or inside a preview pane or sandbox, will never work — Microsoft refuses to sign in on a <i>file://</i> origin, and previews block the sign-in library. Put it on GitHub Pages like your other tools. Press <i>Connection check</i> on the sign-in screen and it will tell you precisely which of these is failing.</li>
+          <li><b>Open it in its own browser tab.</b> Not in a preview pane, artifact viewer, or any embedded frame. Microsoft will not run a sign-in redirect inside an iframe whatever the app registration says. The connection check names the parent page when it detects this.</li>
+          <li><b>It must be served over https.</b> Opening the file from disk will never work — Microsoft refuses a <i>file://</i> origin. Put it on GitHub Pages like your other tools.</li>
+          <li><b>If the library still will not load</b>, something on the network is blocking it — an ad or tracker blocker, a DNS filter, or a corporate proxy. The connection check lists all five sources it tried. The certain fix is to host your own copy: download <i>msal-browser.min.js</i> (version 2.38.x) and drop it in the same folder as this page. It is the last source in the list and nothing can block a file you serve yourself.</li>
           <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails.</li>
           <li><b>Consent the permissions.</b> Same app → API permissions → Microsoft Graph → Delegated → add <i>User.Read</i> and <i>Files.ReadWrite.All</i>, then grant consent.</li>
           <li><b>Then reload the page</b> and sign in. The folder and file are created on first save; you do not need to make them yourself.</li>
@@ -921,6 +923,45 @@ function purgeTombstones(d){
 let MSALAPP = null;
 let AUTH_ERR = null;
 
+/* ── the sign-in library, with fallbacks ──
+   The tag in the document head is the first attempt. If a network, extension or
+   sandbox blocks that host, these are tried in order. The last entry is a copy you
+   host yourself next to this file — nothing can block that. */
+const MSAL_SOURCES = [
+  'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js',
+  'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/dist/msal-browser.min.js',
+  'https://unpkg.com/@azure/msal-browser@2.38.4/dist/msal-browser.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/msal-browser/2.38.3/msal-browser.min.js',
+  './msal-browser.min.js'
+];
+let MSAL_LOG = [];
+
+const inFrame = (() => { try { return window.self !== window.top; } catch(e){ return true; } })();
+
+function loadScript(src, ms = 9000){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    const to = setTimeout(() => { s.remove(); rej(new Error('timed out')); }, ms);
+    s.onload  = () => { clearTimeout(to); res(src); };
+    s.onerror = () => { clearTimeout(to); s.remove(); rej(new Error('blocked or unreachable')); };
+    document.head.appendChild(s);
+  });
+}
+
+async function ensureMsal(){
+  MSAL_LOG = [];
+  if (typeof msal !== 'undefined'){ MSAL_LOG.push([MSAL_SOURCES[0], 'loaded']); return true; }
+  for (let i = 0; i < MSAL_SOURCES.length; i++){
+    try {
+      await loadScript(MSAL_SOURCES[i]);
+      if (typeof msal !== 'undefined'){ MSAL_LOG.push([MSAL_SOURCES[i], 'loaded']); return true; }
+      MSAL_LOG.push([MSAL_SOURCES[i], 'served, but not the library']);
+    } catch(e){ MSAL_LOG.push([MSAL_SOURCES[i], e.message]); }
+  }
+  return false;
+}
+
 const allowedUser = () => (CONFIG.allowedUser||'').toLowerCase().trim();
 function accountAllowed(acct){
   if (!allowedUser()) return true;
@@ -932,12 +973,20 @@ function authDiagnosis(){
   const out = [];
   const proto = location.protocol;
   const secure = window.isSecureContext && (proto === 'https:' || location.hostname === 'localhost');
+
+  if (inFrame) out.push({ bad:1, t:'Running inside a frame',
+    d:'This page is embedded in another page — a preview pane, an artifact viewer, or an iframe. Microsoft will not run a sign-in redirect in here no matter how the app registration is configured. <b>Open this URL in its own browser tab.</b>' });
+
   if (!secure) out.push({ bad:1, t:'Not a secure origin',
-    d:`This page is running on <b>${esc(proto)}//</b>. Microsoft sign-in requires https (or localhost). Opening the file directly from disk will never work.` });
-  if (typeof msal === 'undefined') out.push({ bad:1, t:'Sign-in library blocked',
-    d:'The Microsoft library at alcdn.msauth.net did not load. Previews and sandboxes usually block it — host the file and it will load.' });
-  if (secure && typeof msal !== 'undefined') out.push({ bad:0, t:'Ready to sign in',
-    d:'Register the redirect URI below on the app registration if you have not already.' });
+    d:`Running on <b>${esc(proto)}//</b>. Sign-in requires https, or localhost. Opening the file from disk will never work.` });
+
+  const loaded = typeof msal !== 'undefined';
+  if (!loaded) out.push({ bad:1, t:'Sign-in library did not load',
+    d:'Every source below was tried and none returned the library. That points at the network rather than at this page — an ad or tracker blocker, a DNS filter, or a corporate proxy. Try a different network or browser, disable extensions for this site, or host your own copy (see below).' });
+  else out.push({ bad:0, t:'Sign-in library loaded', d:'Ready.' });
+
+  if (!inFrame && secure && loaded) out.push({ bad:0, t:'Ready to sign in',
+    d:'If sign-in still fails, the redirect URI below does not exactly match the one registered on the app.' });
   return out;
 }
 const redirectUri = () => location.origin + location.pathname;
@@ -3051,15 +3100,43 @@ async function start(online){
 
 function renderDiag(){
   const rows = authDiagnosis();
+  const srcRows = MSAL_LOG.length ? MSAL_LOG.map(([src,res]) => {
+    const ok = res === 'loaded';
+    const short = src.startsWith('./') ? src : src.replace(/^https:\/\//,'').split('/')[0];
+    return `<div style="display:flex;gap:8px;align-items:baseline;font-size:11.5px;padding:4px 0;font-family:var(--f-num)">
+      <span style="color:${ok?'var(--good)':'var(--coral2)'};flex:none">${ok?'✓':'✕'}</span>
+      <span style="flex:1;color:var(--muted);word-break:break-all">${esc(short)}</span>
+      <span style="color:${ok?'var(--good)':'var(--dim)'};flex:none">${esc(res)}</span></div>`;
+  }).join('') : '';
+
   $('#diagPanel').innerHTML = `<div class="diag">
     <h4>Connection check</h4>
     ${rows.map(r=>`<div class="d ${r.bad?'no':'ok'}"><i>${r.bad?'✕':'✓'}</i><div><b>${esc(r.t)}</b><p>${r.d}</p></div></div>`).join('')}
     <div class="kv">
-      <label>Redirect URI — paste this into the app registration</label><code>${esc(redirectUri())}</code>
+      <label>This page is running at</label><code>${esc(location.href)}</code>
+      ${inFrame ? `<label>Embedded in</label><code>${esc(document.referrer || 'an unknown parent page')}</code>` : ''}
+      ${srcRows ? `<label>Sign-in library sources tried</label><div style="background:rgba(4,8,18,.6);border:1px solid var(--line);border-radius:7px;padding:7px 10px">${srcRows}</div>` : ''}
+      <label>Redirect URI — must match the app registration exactly</label><code>${esc(redirectUri())}</code>
       <label>Application (client) ID</label><code>${esc(CONFIG.clientId)}</code>
       <label>Permissions to consent</label><code>${esc(CONFIG.scopes.join('  ·  '))}</code>
       ${CONFIG.allowedUser ? `<label>Restricted to</label><code>${esc(CONFIG.allowedUser)}</code>` : ''}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      ${inFrame ? `<button class="btn pri sm" id="popOut">Open in its own tab</button>` : ''}
+      <button class="btn ghost sm" id="retryLib">Retry loading</button>
+      <button class="btn ghost sm" id="copyUri">Copy redirect URI</button>
     </div></div>`;
+
+  const pop = $('#popOut'); if (pop) pop.onclick = () => window.open(location.href, '_blank', 'noopener');
+  $('#retryLib').onclick = async e => {
+    e.target.textContent = 'Trying…'; e.target.disabled = true;
+    const ok = await ensureMsal();
+    if (ok){ toast('Library loaded — you can sign in now'); location.reload(); }
+    else { renderDiag(); toast('Still blocked on every source', true); }
+  };
+  $('#copyUri').onclick = () => {
+    navigator.clipboard?.writeText(redirectUri()).then(()=>toast('Redirect URI copied'), ()=>toast('Select the text above to copy', true));
+  };
 }
 
 (async () => {
@@ -3082,6 +3159,12 @@ function renderDiag(){
       });
     } catch(e){ toast('Sign-in failed: ' + (e.message||''), true); }
   };
+
+  $('#signIn').textContent = 'Checking sign-in…';
+  $('#signIn').disabled = true;
+  await ensureMsal();
+  $('#signIn').textContent = 'Sign in with Microsoft';
+  $('#signIn').disabled = false;
 
   let signedIn = false;
   try { signedIn = await bootAuth(); }
