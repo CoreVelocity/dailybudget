@@ -722,6 +722,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
           <li><b>Open it in its own browser tab.</b> Not in a preview pane, artifact viewer, or any embedded frame. Microsoft will not run a sign-in redirect inside an iframe whatever the app registration says. The connection check names the parent page when it detects this.</li>
           <li><b>It must be served over https.</b> Opening the file from disk will never work — Microsoft refuses a <i>file://</i> origin. Put it on GitHub Pages like your other tools.</li>
           <li><b>Allow popups for this site.</b> Sign-in opens in a popup rather than navigating away, the same way the Delivery Tracker does. If nothing appears when you press the button, the browser blocked it.</li>
+          <li><b>If you see "interaction is currently in progress"</b>, a previous attempt was interrupted and left a lock in browser storage. The app clears stale locks on every load and retries once by itself; if it still complains, press <i>Reset sign-in state</i> in the error box or the connection check. That wipes the cached sign-in and reloads, and you sign in fresh.</li>
           <li><b>If the library still will not load</b>, put your own copy next to this page. Upload <i>msal-browser.min.js</i> (version 2.38.3) into the same folder as this file — it is the last source the app tries, and nothing on a network can block a file you serve yourself. Edge InPrivate with strict tracking prevention is a common culprit; a normal window usually works.</li>
           <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails.</li>
           <li><b>Consent the permissions.</b> Same app → API permissions → Microsoft Graph → Delegated → add <i>User.Read</i> and <i>Files.ReadWrite.All</i>, then grant consent.</li>
@@ -1024,10 +1025,70 @@ function initMsal(){
   } catch(e){ console.warn('MSAL init failed', e); AUTH_ERR = e.message; return false; }
 }
 
-/* silently resume a session cached from last time */
-async function bootAuth(){
+/* MSAL records "an interaction is in progress" in storage while a popup or redirect
+   is running. If one was interrupted — a closed popup, a reload mid-redirect, a
+   switch between flows — that flag is left behind and every later attempt throws
+   interaction_in_progress. handleRedirectPromise must be awaited on every page load
+   even when using popups; once it settles, nothing is genuinely in flight. */
+function clearInteractionLock(){
+  let n = 0;
+  for (const store of [ (()=>{try{return localStorage}catch(e){return null}})(),
+                        (()=>{try{return sessionStorage}catch(e){return null}})() ]){
+    if (!store) continue;
+    try {
+      const kill = [];
+      for (let i = 0; i < store.length; i++){
+        const k = store.key(i);
+        if (k && k.includes('interaction.status')) kill.push(k);
+      }
+      kill.forEach(k => { store.removeItem(k); n++; });
+    } catch(e){}
+  }
+  return n;
+}
+
+/* wipe every trace of a sign-in — the recovery hammer */
+function resetAuthState(){
+  let n = 0;
+  for (const store of [ (()=>{try{return localStorage}catch(e){return null}})(),
+                        (()=>{try{return sessionStorage}catch(e){return null}})() ]){
+    if (!store) continue;
+    try {
+      const kill = [];
+      for (let i = 0; i < store.length; i++){
+        const k = store.key(i);
+        if (k && (/^msal\./i.test(k) || k.includes('.msal.') || k.includes('login.microsoftonline'))) kill.push(k);
+      }
+      kill.forEach(k => { store.removeItem(k); n++; });
+    } catch(e){}
+  }
+  try {
+    document.cookie.split(';').forEach(c => {
+      const k = c.split('=')[0].trim();
+      if (/msal/i.test(k)){ document.cookie = `${k}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${location.pathname}`;
+                            document.cookie = `${k}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`; n++; }
+    });
+  } catch(e){}
+  return n;
+}
+
+let REDIRECT_SETTLED = null, REDIRECT_RESULT = null;
+async function msalReady(){
   if (!initMsal()) return false;
   if (MSALAPP.initialize) { try { await MSALAPP.initialize(); } catch(e){} }
+  if (!REDIRECT_SETTLED){
+    REDIRECT_SETTLED = MSALAPP.handleRedirectPromise()
+      .then(r => { REDIRECT_RESULT = r; return r; })
+      .catch(e => { console.warn('handleRedirectPromise:', e); return null; });
+  }
+  await REDIRECT_SETTLED;
+  clearInteractionLock();   // nothing is in flight now, so any flag left is stale
+  return true;
+}
+
+/* silently resume a session cached from last time */
+async function bootAuth(){
+  if (!(await msalReady())) return false;
   const all = MSALAPP.getAllAccounts();
   const acct = all.find(accountAllowed);
   if (!acct) return false;
@@ -1038,13 +1099,19 @@ async function bootAuth(){
 }
 
 async function interactiveSignIn(){
-  if (!initMsal()) throw new Error('The sign-in library is not loaded.');
-  if (MSALAPP.initialize) { try { await MSALAPP.initialize(); } catch(e){} }
-  const res = await MSALAPP.loginPopup({
-    scopes: CONFIG.scopes,
-    loginHint: CONFIG.allowedUser || undefined,
-    prompt: 'select_account'
-  });
+  if (!(await msalReady())) throw new Error('The sign-in library is not loaded.');
+  const req = { scopes: CONFIG.scopes, loginHint: CONFIG.allowedUser || undefined, prompt: 'select_account' };
+  let res;
+  try {
+    res = await MSALAPP.loginPopup(req);
+  } catch(e){
+    // a stale lock is the usual cause — clear it and give it one more go
+    if (/interaction_in_progress/i.test(String(e.errorCode || e.message || ''))){
+      clearInteractionLock();
+      await new Promise(r => setTimeout(r, 250));
+      res = await MSALAPP.loginPopup(req);
+    } else throw e;
+  }
   const acct = res.account;
   if (!accountAllowed(acct)){
     try { await MSALAPP.logoutPopup({ account: acct }); } catch(e){}
@@ -3152,6 +3219,7 @@ function renderDiag(){
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
       ${inFrame ? `<button class="btn pri sm" id="popOut">Open in its own tab</button>` : ''}
       <button class="btn ghost sm" id="retryLib">Retry loading</button>
+      <button class="btn ghost sm" id="resetAuth2">Reset sign-in state</button>
       <button class="btn ghost sm" id="copyUri">Copy redirect URI</button>
     </div></div>`;
 
@@ -3161,6 +3229,11 @@ function renderDiag(){
     const ok = await ensureMsal();
     if (ok){ toast('Library loaded — you can sign in now'); location.reload(); }
     else { renderDiag(); toast('Still blocked on every source', true); }
+  };
+  $('#resetAuth2').onclick = () => {
+    const n = resetAuthState();
+    toast(`Cleared ${n} stored sign-in item${n===1?'':'s'} — reloading`);
+    setTimeout(()=>location.reload(), 700);
   };
   $('#copyUri').onclick = () => {
     navigator.clipboard?.writeText(redirectUri()).then(()=>toast('Redirect URI copied'), ()=>toast('Select the text above to copy', true));
@@ -3188,11 +3261,22 @@ function renderDiag(){
       $('#authErr').className = 'hide';
       start(true);
     } catch(e){
-      const m = String(e.message||e);
-      const popupBlocked = /popup|window|user_cancelled|BrowserAuthError/i.test(m);
+      const m = String(e.message || e);
+      const code = String(e.errorCode || '');
+      const stuck   = /interaction_in_progress/i.test(m + code);
+      const cancelled = /user_cancelled|popup_window_error|window_closed/i.test(m + code);
       $('#authErr').className = 'autherr';
-      $('#authErr').innerHTML = `<b>Could not sign you in.</b><br>${esc(m)}` +
-        (popupBlocked ? '<br><br>If no window appeared, your browser blocked the popup. Allow popups for this site and try again.' : '');
+      let extra = '';
+      if (stuck) extra = '<br><br>A previous sign-in attempt was left half-finished and its lock is still in storage. Press <b>Reset sign-in state</b> below, then try again.';
+      else if (cancelled) extra = '<br><br>The popup was closed or blocked. Allow popups for this site and try again.';
+      $('#authErr').innerHTML = `<b>Could not sign you in.</b><br>${esc(m)}${extra}` +
+        `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+           <button class="btn sm" id="resetAuth">Reset sign-in state</button></div>`;
+      $('#resetAuth').onclick = () => {
+        const n = resetAuthState();
+        toast(`Cleared ${n} stored sign-in item${n===1?'':'s'} — reloading`);
+        setTimeout(()=>location.reload(), 700);
+      };
       btn.textContent = label; btn.disabled = false;
     }
   };
