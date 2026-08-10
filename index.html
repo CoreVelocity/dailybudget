@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,9 +12,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Hanken+Grotesk:wght@400;500;600&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script>if(typeof msal==='undefined'){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/2.38.3/msal-browser.min.js"><\/scr'+'ipt>');}</script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>if(typeof Papa==='undefined'){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"><\/scr'+'ipt>');}</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>if(typeof XLSX==='undefined'){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/scr'+'ipt>');}</script>
 <style>
 :root{
   --ink:#0B1220; --navy:#09193A; --panel:#0E1D3C; --panel2:#132A4F; --raise:#18325C;
@@ -717,7 +721,8 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <ul class="guide">
           <li><b>Open it in its own browser tab.</b> Not in a preview pane, artifact viewer, or any embedded frame. Microsoft will not run a sign-in redirect inside an iframe whatever the app registration says. The connection check names the parent page when it detects this.</li>
           <li><b>It must be served over https.</b> Opening the file from disk will never work — Microsoft refuses a <i>file://</i> origin. Put it on GitHub Pages like your other tools.</li>
-          <li><b>If the library still will not load</b>, something on the network is blocking it — an ad or tracker blocker, a DNS filter, or a corporate proxy. The connection check lists all five sources it tried. The certain fix is to host your own copy: download <i>msal-browser.min.js</i> (version 2.38.x) and drop it in the same folder as this page. It is the last source in the list and nothing can block a file you serve yourself.</li>
+          <li><b>Allow popups for this site.</b> Sign-in opens in a popup rather than navigating away, the same way the Delivery Tracker does. If nothing appears when you press the button, the browser blocked it.</li>
+          <li><b>If the library still will not load</b>, put your own copy next to this page. Upload <i>msal-browser.min.js</i> (version 2.38.3) into the same folder as this file — it is the last source the app tries, and nothing on a network can block a file you serve yourself. Edge InPrivate with strict tracking prevention is a common culprit; a normal window usually works.</li>
           <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails.</li>
           <li><b>Consent the permissions.</b> Same app → API permissions → Microsoft Graph → Delegated → add <i>User.Read</i> and <i>Files.ReadWrite.All</i>, then grant consent.</li>
           <li><b>Then reload the page</b> and sign in. The folder and file are created on first save; you do not need to make them yourself.</li>
@@ -806,7 +811,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
    ══════════════════════════════════════════════════════════════ */
 const CONFIG = {
   clientId : 'cd1b7f5f-5ff9-4066-ab4f-06f270a94fcb',
-  authority: 'https://login.microsoftonline.com/common',
+  authority: 'https://login.microsoftonline.com/core-velocity.com',
   // 'personal' → your own OneDrive.  'shared' → the demo@core-velocity.com drive.
   syncMode : 'personal',
   sharedUpn: 'demo@core-velocity.com',
@@ -928,10 +933,10 @@ let AUTH_ERR = null;
    sandbox blocks that host, these are tried in order. The last entry is a copy you
    host yourself next to this file — nothing can block that. */
 const MSAL_SOURCES = [
-  'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js',
-  'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/dist/msal-browser.min.js',
-  'https://unpkg.com/@azure/msal-browser@2.38.4/dist/msal-browser.min.js',
+  'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/msal-browser/2.38.3/msal-browser.min.js',
+  'https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js',
+  'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js',
   './msal-browser.min.js'
 ];
 let MSAL_LOG = [];
@@ -982,11 +987,11 @@ function authDiagnosis(){
 
   const loaded = typeof msal !== 'undefined';
   if (!loaded) out.push({ bad:1, t:'Sign-in library did not load',
-    d:'Every source below was tried and none returned the library. That points at the network rather than at this page — an ad or tracker blocker, a DNS filter, or a corporate proxy. Try a different network or browser, disable extensions for this site, or host your own copy (see below).' });
-  else out.push({ bad:0, t:'Sign-in library loaded', d:'Ready.' });
+    d:'None of the sources below returned the library. If they all say blocked, something on this network or in the browser is stopping them — strict tracking prevention, an ad blocker, or a filter. Allow this site, try another browser, or host your own copy of msal-browser.min.js next to this page (it is the last source in the list).' });
+  else out.push({ bad:0, t:'Sign-in library loaded', d:'Version 2.38.3, the same one the Delivery Tracker uses.' });
 
   if (!inFrame && secure && loaded) out.push({ bad:0, t:'Ready to sign in',
-    d:'If sign-in still fails, the redirect URI below does not exactly match the one registered on the app.' });
+    d:'Sign-in opens in a popup, so allow popups for this site. If it fails after the popup, the redirect URI below does not exactly match the one registered on the app.' });
   return out;
 }
 const redirectUri = () => location.origin + location.pathname;
@@ -994,8 +999,8 @@ const redirectUri = () => location.origin + location.pathname;
 async function signOut(){
   try {
     if (MSALAPP && MSALAPP.getActiveAccount())
-      await MSALAPP.logoutRedirect({ account: MSALAPP.getActiveAccount(), postLogoutRedirectUri: redirectUri() });
-    else location.reload();
+      await MSALAPP.logoutPopup({ account: MSALAPP.getActiveAccount() });
+    location.reload();
   } catch(e){ location.reload(); }
 }
 
@@ -1004,27 +1009,49 @@ function setSync(state, text){
   d.className = 'syncdot ' + state; $('#syncTxt').textContent = text;
 }
 
+/* Popup flow, matching the Delivery Tracker. It avoids a full page redirect,
+   so nothing is lost if the round trip fails, and it works in more contexts. */
+function initMsal(){
+  if (typeof msal === 'undefined') return false;
+  if (MSALAPP) return true;
+  try {
+    MSALAPP = new msal.PublicClientApplication({
+      auth: { clientId: CONFIG.clientId, authority: CONFIG.authority,
+              redirectUri: location.origin + location.pathname },
+      cache:{ cacheLocation:'localStorage', storeAuthStateInCookie:true }
+    });
+    return true;
+  } catch(e){ console.warn('MSAL init failed', e); AUTH_ERR = e.message; return false; }
+}
+
+/* silently resume a session cached from last time */
 async function bootAuth(){
-  if (typeof msal === 'undefined') return false;   // CDN blocked → offline mode
-  MSALAPP = new msal.PublicClientApplication({
-    auth: { clientId: CONFIG.clientId, authority: CONFIG.authority, redirectUri: location.origin + location.pathname },
-    cache:{ cacheLocation:'sessionStorage', storeAuthStateInCookie:false }
-  });
-  if (MSALAPP.initialize) await MSALAPP.initialize();
-  let res = null;
-  try { res = await MSALAPP.handleRedirectPromise(); }
-  catch(e){ console.warn(e); AUTH_ERR = e.message || 'Sign-in was not completed.'; }
-
+  if (!initMsal()) return false;
+  if (MSALAPP.initialize) { try { await MSALAPP.initialize(); } catch(e){} }
   const all = MSALAPP.getAllAccounts();
-  const acct = res?.account || all.find(accountAllowed) || all[0];
+  const acct = all.find(accountAllowed);
   if (!acct) return false;
+  MSALAPP.setActiveAccount(acct); UI.account = acct;
+  try { await MSALAPP.acquireTokenSilent({ scopes: CONFIG.scopes, account: acct }); }
+  catch(e){ return false; }        // needs an interactive sign-in
+  return true;
+}
 
+async function interactiveSignIn(){
+  if (!initMsal()) throw new Error('The sign-in library is not loaded.');
+  if (MSALAPP.initialize) { try { await MSALAPP.initialize(); } catch(e){} }
+  const res = await MSALAPP.loginPopup({
+    scopes: CONFIG.scopes,
+    loginHint: CONFIG.allowedUser || undefined,
+    prompt: 'select_account'
+  });
+  const acct = res.account;
   if (!accountAllowed(acct)){
-    AUTH_ERR = `Signed in as ${acct.username}. This app is restricted to ${CONFIG.allowedUser}.`;
-    try { MSALAPP.setActiveAccount(null); } catch(e){}
-    return false;
+    try { await MSALAPP.logoutPopup({ account: acct }); } catch(e){}
+    throw new Error(`Signed in as ${acct.username}. This app is restricted to ${CONFIG.allowedUser}.`);
   }
-  MSALAPP.setActiveAccount(acct); UI.account = acct; return true;
+  MSALAPP.setActiveAccount(acct); UI.account = acct;
+  return acct;
 }
 
 async function getToken(){
@@ -1035,8 +1062,8 @@ async function getToken(){
     const r = await MSALAPP.acquireTokenSilent({ scopes: CONFIG.scopes, account: acct });
     return r.accessToken;
   } catch(e){
-    await MSALAPP.acquireTokenRedirect({ scopes: CONFIG.scopes });
-    throw e;
+    const r = await MSALAPP.acquireTokenPopup({ scopes: CONFIG.scopes, account: acct });
+    return r.accessToken;
   }
 }
 
@@ -3118,6 +3145,7 @@ function renderDiag(){
       ${srcRows ? `<label>Sign-in library sources tried</label><div style="background:rgba(4,8,18,.6);border:1px solid var(--line);border-radius:7px;padding:7px 10px">${srcRows}</div>` : ''}
       <label>Redirect URI — must match the app registration exactly</label><code>${esc(redirectUri())}</code>
       <label>Application (client) ID</label><code>${esc(CONFIG.clientId)}</code>
+      <label>Authority (tenant)</label><code>${esc(CONFIG.authority)}</code>
       <label>Permissions to consent</label><code>${esc(CONFIG.scopes.join('  ·  '))}</code>
       ${CONFIG.allowedUser ? `<label>Restricted to</label><code>${esc(CONFIG.allowedUser)}</code>` : ''}
     </div>
@@ -3149,15 +3177,24 @@ function renderDiag(){
     $('#gateWho').textContent = 'Data is stored as a single JSON file in your OneDrive.';
 
   $('#signIn').onclick = async () => {
-    if (!MSALAPP){ renderDiag(); $('#diagPanel').classList.remove('hide');
-      return toast('Sign-in cannot run here — see the connection check', true); }
+    if (typeof msal === 'undefined'){
+      renderDiag(); $('#diagPanel').classList.remove('hide');
+      return toast('Sign-in library is not loaded — see the connection check', true);
+    }
+    const btn = $('#signIn'); const label = btn.textContent;
+    btn.textContent = 'Waiting for the popup…'; btn.disabled = true;
     try {
-      await MSALAPP.loginRedirect({
-        scopes: CONFIG.scopes,
-        loginHint: CONFIG.allowedUser || undefined,
-        prompt: CONFIG.allowedUser ? 'login' : 'select_account'
-      });
-    } catch(e){ toast('Sign-in failed: ' + (e.message||''), true); }
+      await interactiveSignIn();
+      $('#authErr').className = 'hide';
+      start(true);
+    } catch(e){
+      const m = String(e.message||e);
+      const popupBlocked = /popup|window|user_cancelled|BrowserAuthError/i.test(m);
+      $('#authErr').className = 'autherr';
+      $('#authErr').innerHTML = `<b>Could not sign you in.</b><br>${esc(m)}` +
+        (popupBlocked ? '<br><br>If no window appeared, your browser blocked the popup. Allow popups for this site and try again.' : '');
+      btn.textContent = label; btn.disabled = false;
+    }
   };
 
   $('#signIn').textContent = 'Checking sign-in…';
@@ -3170,8 +3207,7 @@ function renderDiag(){
   try { signedIn = await bootAuth(); }
   catch(e){ console.warn('Auth unavailable:', e); AUTH_ERR = AUTH_ERR || (e.message || 'Sign-in could not start.'); }
 
-  const blocked = authDiagnosis().some(r => r.bad);
-  if (blocked){
+  if (typeof msal === 'undefined' || !window.isSecureContext){
     $('#signIn').disabled = true; $('#signIn').style.opacity = '.45'; $('#signIn').style.cursor = 'not-allowed';
     $('#signIn').textContent = 'Sign-in unavailable here';
     renderDiag(); $('#diagPanel').classList.remove('hide');
