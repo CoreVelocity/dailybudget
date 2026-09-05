@@ -220,6 +220,19 @@ svg text{font-family:var(--f-num);font-size:10px;fill:var(--dim)}
 .gate .mark{width:56px;height:56px;border-radius:16px;margin:0 auto 22px;background:linear-gradient(135deg,var(--electric),var(--hyper));display:grid;place-items:center;font-family:var(--f-dis);font-weight:800;font-size:24px;color:#fff}
 
 
+.verline{font-family:var(--f-num);font-size:11.5px;color:var(--dim);margin:-8px 0 20px;letter-spacing:-.01em}
+.verline b{color:var(--sky);font-weight:500}
+.brand em{font-family:var(--f-num);font-style:normal;font-size:10px;color:var(--dim);letter-spacing:-.02em;margin-top:5px}
+.vhist{margin-top:4px}
+.vhist .vh{padding:12px 0;border-bottom:1px solid rgba(130,211,255,.07)}
+.vhist .vh:last-child{border:none}
+.vhist .vh h5{font-family:var(--f-num);font-size:12.5px;color:var(--sky);font-weight:500;margin-bottom:6px;display:flex;gap:9px;align-items:baseline}
+.vhist .vh h5 span{color:var(--dim);font-size:11px}
+.vhist .vh h5 i{font-style:normal;font-family:var(--f-body);font-size:10px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink);background:var(--sky);border-radius:4px;padding:2px 6px}
+.vhist .vh ul{margin:0;padding-left:17px}
+.vhist .vh li{font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:4px}
+
 .diag{text-align:left;margin-top:18px;background:rgba(11,18,32,.6);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 .diag h4{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);font-weight:600;margin-bottom:12px}
 .diag .d{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid rgba(130,211,255,.07)}
@@ -357,6 +370,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
     <div class="mark">↗</div>
     <h1>Independence</h1>
     <p>Your transactions, balance sheet and five-year path — synced to your own OneDrive. Sign in to load it.</p>
+    <div id="gateVer" class="verline"></div>
     <div id="authErr" class="hide"></div>
     <button class="btn pri" id="signIn" style="padding:12px 26px">Sign in with Microsoft</button>
     <p style="font-size:11.5px;color:var(--dim);margin-top:16px" id="gateWho"></p>
@@ -368,7 +382,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 
 <div class="app hide" id="app">
   <aside class="rail">
-    <div class="brand"><b>Independence</b><span>Finance Console</span></div>
+    <div class="brand"><b>Independence</b><span>Finance Console</span><em id="railVer"></em></div>
     <button class="nav on" data-view="overview" data-primary><i>◐</i>Overview</button>
     <button class="nav" data-view="ledger" data-primary><i>≡</i>Ledger</button>
     <button class="nav" data-view="import" data-primary><i>↧</i>Import</button>
@@ -721,11 +735,11 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <ul class="guide">
           <li><b>Open it in its own browser tab.</b> Not in a preview pane, artifact viewer, or any embedded frame. Microsoft will not run a sign-in redirect inside an iframe whatever the app registration says. The connection check names the parent page when it detects this.</li>
           <li><b>It must be served over https.</b> Opening the file from disk will never work — Microsoft refuses a <i>file://</i> origin. Put it on GitHub Pages like your other tools.</li>
-          <li><b>Allow popups for this site.</b> Sign-in opens in a popup rather than navigating away, the same way the Delivery Tracker does. If nothing appears when you press the button, the browser blocked it.</li>
-          <li><b>If you see "blocked inside a popup"</b>, the window you are looking at is the Microsoft sign-in popup itself — it came back to the app instead of closing. A popup cannot open another popup. Your app is still in the original tab; switch to it. If you would rather carry on in the window in front of you, press <i>Continue in a normal window</i> and it converts itself and reloads.</li>
+          <li><b>Sign-in uses a full-page redirect.</b> Pressing the button sends you to Microsoft and brings you back here — the same flow the Delivery Tracker uses. No popup is involved, so popup blockers and browser privacy settings cannot interfere.</li>
+          <li><b>If you saw "user cancelled" or "blocked inside a popup" on an older build</b>, that was the popup flow. Microsoft's login page sends a Cross-Origin-Opener-Policy header that severs the link back to the window that opened it, so the library lost track of its own popup and reported it as cancelled. Version 1.7.0 removed popups entirely.</li>
           <li><b>If you see "interaction is currently in progress"</b>, a previous attempt was interrupted and left a lock in browser storage. The app clears stale locks on every load and retries once by itself; if it still complains, press <i>Reset sign-in state</i> in the error box or the connection check. That wipes the cached sign-in and reloads, and you sign in fresh.</li>
           <li><b>If the library still will not load</b>, put your own copy next to this page. Upload <i>msal-browser.min.js</i> (version 2.38.3) into the same folder as this file — it is the last source the app tries, and nothing on a network can block a file you serve yourself. Edge InPrivate with strict tracking prevention is a common culprit; a normal window usually works.</li>
-          <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails.</li>
+          <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails, and with the redirect flow the failure appears as an AADSTS50011 message from Microsoft before you get back here.</li>
           <li><b>Consent the permissions.</b> Same app → API permissions → Microsoft Graph → Delegated → add <i>User.Read</i> and <i>Files.ReadWrite.All</i>, then grant consent.</li>
           <li><b>Then reload the page</b> and sign in. The folder and file are created on first save; you do not need to make them yourself.</li>
         </ul>
@@ -740,6 +754,16 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
           <li><b>Why both.</b> Anyone who views the page source can change a line of JavaScript. Nobody can change what Entra will issue a token for. Do the second step and the first becomes a courtesy message rather than a security control.</li>
           <li><b>Your data is separately safe.</b> The file sits in your own OneDrive, so another account would reach their own empty file, not yours.</li>
         </ul>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h3>Version history</h3>
+        <div class="sub" id="verSub">—</div>
+        <div id="verHist"></div>
+        <div style="font-size:12px;color:var(--dim);margin-top:14px;line-height:1.55">
+          If the version above does not match the file you just uploaded, the browser is serving a cached copy.
+          Hold <b>Shift</b> and press reload, or open the page once in a private window, to force it to fetch the new one.
+        </div>
       </div>
 
       <div class="card">
@@ -811,6 +835,36 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 /* ══════════════════════════════════════════════════════════════
    CONFIG — edit these three lines if anything moves
    ══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   VERSION — bump this on every release, newest entry first
+   ══════════════════════════════════════════════════════════════ */
+const APP_VERSION = '1.7.0';
+const APP_BUILT   = '2026-09-05';
+const CHANGELOG = [
+  { v:'1.7.0', d:'2026-09-05', notes:[
+    'Sign-in now uses the full-page redirect flow, matching the Delivery Tracker',
+    'Popup sign-in removed — Microsoft\'s COOP header breaks it and reports a false "user cancelled"',
+    'Token renewal also goes through a redirect rather than a popup' ]},
+  { v:'1.6.0', d:'2026-08-31', notes:[
+    'Version number now shown on the sign-in screen, the sidebar and in Settings',
+    'Recovers automatically when the app is left running inside the Microsoft sign-in popup',
+    'Sign-in falls back to a full-page redirect when a popup is blocked' ]},
+  { v:'1.5.0', d:'2026-08-10', notes:[
+    'Sign-in switched to the popup flow used by the Delivery Tracker, on the correct library path',
+    'Stale "interaction in progress" locks are cleared on load, with a manual reset button',
+    'Every external library now has a second source if the first is unreachable' ]},
+  { v:'1.4.0', d:'2026-08-08', notes:[
+    'Restricted to one account, with a connection check that diagnoses sign-in problems',
+    'How to use tab added — first-run steps, page reference and the maths behind the numbers',
+    'Catch-up reminders on open, and a phone layout with card-style tables' ]},
+  { v:'1.3.0', d:'2026-08-07', notes:[
+    'Sinking funds for lumpy costs, with baseline smoothing',
+    'Monthly category targets with pace tracking',
+    'Debt payoff simulator — minimums against avalanche and snowball' ]},
+  { v:'1.0.0', d:'2026-08-06', notes:[
+    'Ledger, statement import, recurring items, balance sheet and the five-year plan' ]}
+];
+
 const CONFIG = {
   clientId : 'cd1b7f5f-5ff9-4066-ab4f-06f270a94fcb',
   authority: 'https://login.microsoftonline.com/core-velocity.com',
@@ -950,6 +1004,12 @@ const inFrame = (() => { try { return window.self !== window.top; } catch(e){ re
    redirects back to this app and does not close, the app ends up running inside it,
    and every later sign-in throws block_nested_popups. Clearing window.name turns the
    window back into an ordinary one, which is the way out. */
+/* The tracker's test: any window with an opener. Broader than MSAL's own check
+   on purpose — in a popup-style window we always take the redirect path. */
+function isRunningInPopup(){
+  try { return !!(window.opener && window.opener !== window); } catch(e){ return false; }
+}
+/* MSAL's own narrower test, used only to spot a sign-in popup that came home */
 function inMsalPopup(){
   try {
     return !!window.opener && window.opener !== window &&
@@ -994,9 +1054,6 @@ function authDiagnosis(){
   const proto = location.protocol;
   const secure = window.isSecureContext && (proto === 'https:' || location.hostname === 'localhost');
 
-  if (inMsalPopup()) out.push({ bad:1, t:'Running inside the sign-in popup',
-    d:'This window <b>is</b> the Microsoft sign-in popup — it redirected back here instead of closing. A popup may not open another popup, so sign-in is blocked. Press <b>Continue in a normal window</b> below and this window becomes ordinary again.' });
-
   if (inFrame) out.push({ bad:1, t:'Running inside a frame',
     d:'This page is embedded in another page — a preview pane, an artifact viewer, or an iframe. Microsoft will not run a sign-in redirect in here no matter how the app registration is configured. <b>Open this URL in its own browser tab.</b>' });
 
@@ -1008,8 +1065,8 @@ function authDiagnosis(){
     d:'None of the sources below returned the library. If they all say blocked, something on this network or in the browser is stopping them — strict tracking prevention, an ad blocker, or a filter. Allow this site, try another browser, or host your own copy of msal-browser.min.js next to this page (it is the last source in the list).' });
   else out.push({ bad:0, t:'Sign-in library loaded', d:'Version 2.38.3, the same one the Delivery Tracker uses.' });
 
-  if (!inFrame && !inMsalPopup() && secure && loaded) out.push({ bad:0, t:'Ready to sign in',
-    d:'Sign-in opens in a popup, so allow popups for this site. If it fails after the popup, the redirect URI below does not exactly match the one registered on the app.' });
+  if (!inFrame && secure && loaded) out.push({ bad:0, t:'Ready to sign in',
+    d:'Sign-in sends you to Microsoft and returns you here, so no popup is involved. If it fails on the way back, the redirect URI below does not exactly match the one registered on the app.' });
   return out;
 }
 const redirectUri = () => location.origin + location.pathname;
@@ -1017,8 +1074,9 @@ const redirectUri = () => location.origin + location.pathname;
 async function signOut(){
   try {
     if (MSALAPP && MSALAPP.getActiveAccount())
-      await MSALAPP.logoutPopup({ account: MSALAPP.getActiveAccount() });
-    location.reload();
+      await MSALAPP.logoutRedirect({ account: MSALAPP.getActiveAccount(),
+                                     postLogoutRedirectUri: redirectUri() });
+    else location.reload();
   } catch(e){ location.reload(); }
 }
 
@@ -1103,66 +1161,73 @@ async function msalReady(){
   return true;
 }
 
-/* silently resume a session cached from last time */
+/* Resume a session: first from a redirect we have just come back from,
+   otherwise from a cached account. */
 async function bootAuth(){
   if (!(await msalReady())) return false;
+
+  const pending = sessionStorage.getItem('independence:pending-signin') === '1';
+  sessionStorage.removeItem('independence:pending-signin');
+
+  // just returned from Microsoft
+  if (REDIRECT_RESULT && REDIRECT_RESULT.account){
+    const acct = REDIRECT_RESULT.account;
+    if (!accountAllowed(acct)){
+      AUTH_ERR = `Signed in as ${acct.username}. This app is restricted to ${CONFIG.allowedUser}.`;
+      try { await MSALAPP.logoutRedirect({ account: acct, postLogoutRedirectUri: redirectUri() }); } catch(e){}
+      return false;
+    }
+    MSALAPP.setActiveAccount(acct); UI.account = acct;
+    return true;
+  }
+
   const all = MSALAPP.getAllAccounts();
   const acct = all.find(accountAllowed);
-  if (!acct) return false;
+  if (!acct){
+    if (pending) AUTH_ERR = 'Sign-in did not complete. Please try again.';
+    return false;
+  }
   MSALAPP.setActiveAccount(acct); UI.account = acct;
   try { await MSALAPP.acquireTokenSilent({ scopes: CONFIG.scopes, account: acct }); }
-  catch(e){ return false; }        // needs an interactive sign-in
+  catch(e){ return false; }        // silent renewal failed — needs the button
   return true;
 }
 
+/* ── Sign-in: full-page redirect, the same flow the Delivery Tracker uses ──
+   The popup flow is deliberately not used. Microsoft's login page sends a
+   Cross-Origin-Opener-Policy header that cuts the link to window.opener, so MSAL
+   loses contact with its own popup and reports user_cancelled even though the user
+   did nothing wrong. A redirect has no opener to lose and works in every context. */
 async function interactiveSignIn(){
   if (!(await msalReady())) throw new Error('The sign-in library is not loaded.');
-  const req = { scopes: CONFIG.scopes, loginHint: CONFIG.allowedUser || undefined, prompt: 'select_account' };
 
-  // A popup cannot open a popup. Leave that context first, then reload and try again.
-  if (inMsalPopup()){
-    escapePopupContext();
-    sessionStorage.setItem('independence:resume-signin', '1');
-    location.reload();
-    throw new Error('Leaving the sign-in popup — this window will reload.');
-  }
+  // clear anything left by an aborted attempt, or the redirect will be refused
+  clearInteractionLock();
 
-  let res;
-  try {
-    res = await MSALAPP.loginPopup(req);
-  } catch(e){
-    const code = String(e.errorCode || e.message || '');
-    if (/interaction_in_progress/i.test(code)){
-      clearInteractionLock();
-      await new Promise(r => setTimeout(r, 250));
-      res = await MSALAPP.loginPopup(req);
-    }
-    // popup blocked by the browser, or nested — fall back to a full-page redirect
-    else if (/popup_window_error|empty_window_error|block_nested_popups|popup.*blocked/i.test(code)){
-      await MSALAPP.loginRedirect(req);
-      throw new Error('Continuing sign-in in this window…');
-    }
-    else throw e;
-  }
-  const acct = res.account;
-  if (!accountAllowed(acct)){
-    try { await MSALAPP.logoutPopup({ account: acct }); } catch(e){}
-    throw new Error(`Signed in as ${acct.username}. This app is restricted to ${CONFIG.allowedUser}.`);
-  }
-  MSALAPP.setActiveAccount(acct); UI.account = acct;
-  return acct;
+  sessionStorage.setItem('independence:pending-signin', '1');
+  await MSALAPP.loginRedirect({
+    scopes: CONFIG.scopes,
+    loginHint: CONFIG.allowedUser || undefined,
+    prompt: 'select_account'
+  });
+  // the browser navigates away here; nothing below runs on this path
+  return null;
 }
 
 async function getToken(){
   const acct = MSALAPP.getActiveAccount();
   if (!acct) throw new Error('Not signed in');
   if (!accountAllowed(acct)) throw new Error('Wrong account signed in');
+  const req = { scopes: CONFIG.scopes, account: acct };
   try {
-    const r = await MSALAPP.acquireTokenSilent({ scopes: CONFIG.scopes, account: acct });
+    const r = await MSALAPP.acquireTokenSilent(req);
     return r.accessToken;
   } catch(e){
-    const r = await MSALAPP.acquireTokenPopup({ scopes: CONFIG.scopes, account: acct });
-    return r.accessToken;
+    // consent expired or a new scope is needed — send them through Microsoft again
+    clearInteractionLock();
+    sessionStorage.setItem('independence:pending-signin', '1');
+    await MSALAPP.acquireTokenRedirect(req);
+    throw new Error('Renewing your sign-in…');
   }
 }
 
@@ -2172,6 +2237,7 @@ function renderSettings(){
   $('#dataStats').innerHTML = `${live('transactions').length} transactions · ${live('accounts').length} accounts ·
     ${live('assets').length} assets · ${live('liabilities').length} liabilities · ${live('recurring').length} recurring ·
     ${live('funds').length} funds · ${live('targets').length} targets · ${live('rules').length} rules<br>
+    Version <b>${esc(APP_VERSION)}</b>, built ${esc(APP_BUILT)}<br>
     Syncing to <b>${CONFIG.syncMode === 'shared' ? esc(CONFIG.sharedUpn) : 'your own OneDrive'}</b> at /${CONFIG.folder}/${CONFIG.fileName}
     ${CONFIG.allowedUser ? `<br>Locked to <b>${esc(CONFIG.allowedUser)}</b>${UI.account?.username ? ` · signed in as ${esc(UI.account.username)}` : ''}` : ''}`;
 }
@@ -3013,6 +3079,10 @@ function renderAll(){
     else if (UI.view === 'balance') renderBalance();
     else if (UI.view === 'plan') renderPlan();
     else if (UI.view === 'settings'){ renderSettings(); renderRemindSettings(); }
+    else if (UI.view === 'guide'){
+      $('#verSub').innerHTML = `Running <b style="color:var(--sky)">v${esc(APP_VERSION)}</b>, built ${esc(APP_BUILT)}`;
+      renderChangelog();
+    }
     else if (UI.view === 'import'){
       fillSelect($('#pasteAcct'), live('accounts').map(a=>[a.id,a.name]).concat(live('accounts').length?[]:[['','Create an account in Settings']]));
       renderManualForm();
@@ -3216,12 +3286,28 @@ async function start(online){
     $('#userLine').textContent = 'Not signed in';
   }
   seedIfEmpty();
+  stampVersion();
   wire();
   go(live('transactions').length ? 'overview' : 'guide');
   maybeRemind();
   setInterval(notifyTick, 30 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) nudgeBadge(); });
   if (online) syncNow(true);
+}
+
+/* the build the browser is actually running — the quickest way to confirm a deploy landed */
+function stampVersion(){
+  const g = $('#gateVer');
+  if (g) g.innerHTML = `Version <b>${APP_VERSION}</b> · built ${APP_BUILT}`;
+  const r = $('#railVer');
+  if (r) r.textContent = `v${APP_VERSION}`;
+}
+
+function renderChangelog(){
+  const host = $('#verHist'); if (!host) return;
+  host.innerHTML = `<div class="vhist">${CHANGELOG.map((c,i)=>`
+    <div class="vh"><h5>${esc(c.v)} <span>${esc(c.d)}</span>${i===0?'<i>current</i>':''}</h5>
+      <ul>${c.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul></div>`).join('')}</div>`;
 }
 
 function renderDiag(){
@@ -3239,6 +3325,7 @@ function renderDiag(){
     <h4>Connection check</h4>
     ${rows.map(r=>`<div class="d ${r.bad?'no':'ok'}"><i>${r.bad?'✕':'✓'}</i><div><b>${esc(r.t)}</b><p>${r.d}</p></div></div>`).join('')}
     <div class="kv">
+      <label>Build this browser is running</label><code>v${esc(APP_VERSION)}  ·  built ${esc(APP_BUILT)}</code>
       <label>This page is running at</label><code>${esc(location.href)}</code>
       ${inFrame ? `<label>Embedded in</label><code>${esc(document.referrer || 'an unknown parent page')}</code>` : ''}
       ${srcRows ? `<label>Sign-in library sources tried</label><div style="background:rgba(4,8,18,.6);border:1px solid var(--line);border-radius:7px;padding:7px 10px">${srcRows}</div>` : ''}
@@ -3275,6 +3362,7 @@ function renderDiag(){
 }
 
 (async () => {
+  stampVersion();
   /* If this window IS the sign-in popup, it should finish the handshake and close,
      not present the app. Only if closing fails do we offer a way to carry on here. */
   if (inMsalPopup()){
@@ -3282,7 +3370,7 @@ function renderDiag(){
       <div class="mark">↗</div><h1>Finishing sign-in</h1>
       <p id="popMsg">Completing the handshake and closing this window…</p>
       <button class="btn pri" id="popContinue" style="padding:12px 26px;display:none">Continue in a normal window</button>
-      <p style="font-size:11.5px;color:var(--dim);margin-top:18px">This window was opened by the sign-in prompt. Your app is in the original tab.</p></div>`;
+      <p style="font-size:11.5px;color:var(--dim);margin-top:18px">This window was opened by an older sign-in prompt. Your app is in the original tab.</p></div>`;
     $('#popContinue').onclick = () => { escapePopupContext(); location.reload(); };
     try { await msalReady(); } catch(e){}
     try { window.close(); } catch(e){}
@@ -3307,28 +3395,21 @@ function renderDiag(){
       return toast('Sign-in library is not loaded — see the connection check', true);
     }
     const btn = $('#signIn'); const label = btn.textContent;
-    btn.textContent = 'Waiting for the popup…'; btn.disabled = true;
+    btn.textContent = 'Taking you to Microsoft…'; btn.disabled = true;
     try {
-      await interactiveSignIn();
-      $('#authErr').className = 'hide';
-      start(true);
+      await interactiveSignIn();   // navigates away; nothing after this runs
     } catch(e){
       const m = String(e.message || e);
       const code = String(e.errorCode || '');
-      const stuck     = /interaction_in_progress/i.test(m + code);
-      const nested    = /block_nested_popups/i.test(m + code) || inMsalPopup();
-      const cancelled = /user_cancelled|popup_window_error|window_closed/i.test(m + code);
+      const stuck = /interaction_in_progress/i.test(m + code);
+      const badUri = /redirect_uri|AADSTS50011/i.test(m + code);
       $('#authErr').className = 'autherr';
       let extra = '';
-      if (nested) extra = '<br><br>This window is the Microsoft sign-in popup, which came back here instead of closing. A popup cannot open another popup. Press <b>Continue in a normal window</b> — it converts this window and reloads.';
-      else if (stuck) extra = '<br><br>A previous attempt was left half-finished and its lock is still in storage. Press <b>Reset sign-in state</b>, then try again.';
-      else if (cancelled) extra = '<br><br>The popup was closed or blocked. Allow popups for this site and try again.';
+      if (stuck) extra = '<br><br>A previous attempt was left half-finished. Press <b>Reset sign-in state</b>, then try again.';
+      else if (badUri) extra = `<br><br>The redirect URI registered on the app does not match this page. It must be exactly <b>${esc(redirectUri())}</b>, registered under the <b>Single-page application</b> platform.`;
       $('#authErr').innerHTML = `<b>Could not sign you in.</b><br>${esc(m)}${extra}` +
         `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-           ${nested ? '<button class="btn pri sm" id="escPopup">Continue in a normal window</button>' : ''}
            <button class="btn sm" id="resetAuth">Reset sign-in state</button></div>`;
-      const escBtn = $('#escPopup');
-      if (escBtn) escBtn.onclick = () => { escapePopupContext(); location.reload(); };
       $('#resetAuth').onclick = () => {
         const n = resetAuthState();
         toast(`Cleared ${n} stored sign-in item${n===1?'':'s'} — reloading`);
@@ -3344,11 +3425,7 @@ function renderDiag(){
   $('#signIn').textContent = 'Sign in with Microsoft';
   $('#signIn').disabled = false;
 
-  // we just escaped a popup context and reloaded — carry on where we left off
-  if (sessionStorage.getItem('independence:resume-signin')){
-    sessionStorage.removeItem('independence:resume-signin');
-    setTimeout(() => $('#signIn').onclick(), 400);
-  }
+
 
   let signedIn = false;
   try { signedIn = await bootAuth(); }
