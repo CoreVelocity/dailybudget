@@ -517,9 +517,9 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
           <div class="step"><b>Step 3</b>Review &amp; confirm</div>
         </div>
         <div class="drop" id="dropZone">
-          <b>Drop a CSV or Excel export here</b>
-          <span>Emirates NBD, ADCB, Mashreq, FAB, HSBC — any layout. You'll map the columns next.</span>
-          <input type="file" id="fileInput" accept=".csv,.xls,.xlsx,.txt" class="hide">
+          <b>Drop a statement here — PDF, CSV or Excel</b>
+          <span>Emirates NBD, ADCB, Mashreq, FAB, HSBC. PDFs are read directly; spreadsheets ask you to map the columns.</span>
+          <input type="file" id="fileInput" accept=".csv,.xls,.xlsx,.txt,.pdf" class="hide">
         </div>
         <div id="mapWrap" class="hide" style="margin-top:18px"></div>
       </div>
@@ -672,7 +672,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <div class="sub">Each step feeds the next, so skipping one leaves the pages after it empty</div>
         <ol class="guide">
           <li><b>Add your accounts.</b> Settings → Accounts. One entry per bank account and credit card you'll import from. Name them the way you think of them, not the way the bank does.</li>
-          <li><b>Import a statement.</b> Import → Upload file. Export three to six months from online banking as CSV or Excel. You'll be shown the columns found in the file and asked which is the date, which is the description, and which holds the amounts — banks all label these differently, so nothing is assumed.</li>
+          <li><b>Import a statement.</b> Import → Upload file. A PDF statement works directly; a CSV or Excel export is more reliable if your bank offers one. Get three to six months in. You'll be shown the columns found in the file and asked which is the date, which is the description, and which holds the amounts — banks all label these differently, so nothing is assumed.</li>
           <li><b>Fix the categories.</b> Ledger → set <i>Uncategorised only</i> to Yes. Tap any category cell to set it, and leave the "apply to everything matching" box ticked. Each one you set writes a rule that files every future import automatically, so this is a shrinking job, not a recurring one.</li>
           <li><b>Log what repeats.</b> Recurring → add salary, rent, school fees, loan instalments, subscriptions. The Recurring page also flags charges that appear every month but aren't logged yet — adopt the real ones.</li>
           <li><b>Build the balance sheet.</b> Balance sheet → add every asset and liability. Give each asset an expected return, and tick <i>counts toward independence</i> for anything you'd actually draw on. Your home and car usually shouldn't be ticked; a brokerage account should.</li>
@@ -698,7 +698,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <h3>What each page is for</h3>
         <details><summary>Overview</summary><p>Your standing right now. The <b>independence horizon</b> is the strip of sixty bars — one per month — showing what share of your living costs safe withdrawals from invested assets would cover. Where it crosses 100% is the date the money covers you. Below it, the insight panel reads your actual transactions and reports what it finds rather than offering generic advice.</p></details>
         <details><summary>Ledger</summary><p>Every transaction, filterable by text, category, account, type and date. Export the filtered view as CSV any time. Tapping a category cell is the fastest way to teach the app your merchants.</p></details>
-        <details><summary>Import</summary><p>Three routes in. <b>Upload</b> handles any bank layout by asking you to map the columns. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
+        <details><summary>Import</summary><p>Three routes in. <b>Upload</b> takes a PDF, CSV or Excel statement. A PDF is read directly — the text is pulled off the pages, the debit and credit columns are located so each amount gets the right sign, and running balances and reference numbers are discarded; you see the extracted text and can correct it before anything is added. A spreadsheet asks you to map the columns instead. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
         <details><summary>Recurring</summary><p>Fixed commitments that post themselves. Press <i>Post due items</i> and everything outstanding is written to the ledger. These form the fixed base of your plan.</p></details>
         <details><summary>Targets</summary><p>Two halves. <b>Sinking funds</b> for lumpy costs — set the amount and the date and the monthly figure is worked out. <b>Monthly targets</b> put a ceiling on everyday categories; the pale marker on each bar shows where you'd be if the month were spent evenly.</p></details>
         <details><summary>Balance sheet</summary><p>Assets against liabilities, plus the <b>debt payoff simulator</b>: minimum payments versus avalanche versus snowball, with a slider for extra payment showing months and interest saved. Save a snapshot each month to build the net worth trend.</p></details>
@@ -724,6 +724,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
           <li><b>Moving money isn't spending.</b> Anything between your own accounts should be a <i>Transfer</i>, not an expense, or your spending will look far worse than it is.</li>
           <li><b>Credit card payments are transfers too.</b> The spending was recorded when you used the card. Categorise the repayment as <i>Credit card payment</i>.</li>
           <li><b>Don't tick "counts toward independence" on your home.</b> You can't spend it without selling it. The same goes for your car and, usually, business equity.</li>
+          <li><b>A scanned PDF cannot be read.</b> If the statement is a photograph or scan rather than a real text PDF, no text can be extracted. Export a CSV from online banking, or copy the rows into the Paste tab.</li>
           <li><b>Three months of data is the minimum</b> before the baseline means anything. Six is better.</li>
           <li><b>Expected returns are your assumption, not a forecast.</b> Use the Conservative scenario as your working plan and treat the Aggressive one as upside.</li>
         </ul>
@@ -838,9 +839,13 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const APP_BUILT   = '2026-09-05';
 const CHANGELOG = [
+  { v:'1.8.0', d:'2026-09-05', notes:[
+    'PDF bank statements can be imported directly — text is read from the pages, no column mapping',
+    'Debits and credits are signed from the column they sit in, and running balances and reference numbers are ignored',
+    'Files with no columns no longer open the column mapper' ]},
   { v:'1.7.0', d:'2026-09-05', notes:[
     'Sign-in now uses the full-page redirect flow, matching the Delivery Tracker',
     'Popup sign-in removed — Microsoft\'s COOP header breaks it and reports a false "user cancelled"',
@@ -1352,7 +1357,7 @@ const BUILTIN = [
   [/SALARY|PAYROLL|WPS |WAGE/i,'Salary','income'],
   [/DIVIDEND|PROFIT DISTRIB/i,'Dividends','income'],
   [/INTEREST CREDIT|INTEREST EARNED|PROFIT CREDIT/i,'Interest','income'],
-  [/CARD PAYMENT|CREDIT CARD PAYMENT|PAYMENT RECEIVED - THANK/i,'Credit card payment','transfer'],
+  [/CARD PAYMENT|CREDIT CARD PAYMENT|PAYMENT RECEIVED|PAYMENT - THANK|AUTOPAY/i,'Credit card payment','transfer'],
   [/TRANSFER|TRF |FUND TRANSFER|IPP |OWN ACCOUNT/i,'Transfer','transfer'],
   [/ATM|CASH WITHDRAW/i,'Other','expense']
 ];
@@ -1430,6 +1435,157 @@ const normDesc = d => String(d||'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').rep
 const txnHash = t => `${t.date}|${Math.round(t.amount*100)}|${normDesc(t.description).slice(0,34)}`;
 
 /* ══════════════ file import ══════════════ */
+/* ══════════════════════════════════════════════════════════════
+   PDF STATEMENTS
+   A PDF has no columns to map — it is a page of positioned text. We pull the
+   text out, rebuild the visual lines from the coordinates, and hand those to the
+   same parser the Paste tab uses, which already knows how to read a statement line.
+   ══════════════════════════════════════════════════════════════ */
+const PDFJS_SOURCES = [
+  ['https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js',
+   'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js'],
+  ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'],
+  ['./pdf.min.js', './pdf.worker.min.js']
+];
+
+async function ensurePdfJs(){
+  if (window.pdfjsLib) return true;
+  for (const [lib, worker] of PDFJS_SOURCES){
+    try {
+      await loadScript(lib, 15000);
+      if (window.pdfjsLib){
+        try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = worker; } catch(e){}
+        return true;
+      }
+    } catch(e){ /* try the next source */ }
+  }
+  return false;
+}
+
+const isPdf = async (file) => {
+  if (/\.pdf$/i.test(file.name)) return true;
+  try {
+    const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    return String.fromCharCode(...head.slice(0, 5)) === '%PDF-';
+  } catch(e){ return false; }
+};
+
+/* Group text fragments into the rows they appear on visually */
+function itemsToRows(items){
+  const rows = [];
+  for (const it of items){
+    if (!it.str || !it.str.trim()) continue;
+    const y = it.transform[5], x = it.transform[4];
+    const w = it.width || (String(it.str).length * 4);
+    let row = rows.find(r => Math.abs(r.y - y) <= 3);
+    if (!row){ row = { y, cells: [] }; rows.push(row); }
+    row.cells.push({ x, w, s: it.str });
+  }
+  rows.sort((a, b) => b.y - a.y);              // PDF y counts upward
+  rows.forEach(r => r.cells.sort((a, b) => a.x - b.x));
+  return rows;
+}
+
+const CELL_NUM = /^[\s(]*[-+]?(?:AED|USD|\$)?\s?\d+(?:[,\s]\d{3})*(?:\.\d{1,2})?\)?\s*(?:CR|DR)?$/i;
+
+/* A statement's sign lives in which column a number sits in, not in the text.
+   Find the Debit / Credit / Balance headings and remember where they are, so the
+   numbers underneath can be signed correctly and the running balance dropped. */
+function findAmountColumns(rows){
+  for (const r of rows.slice(0, 40)){
+    const hits = [];
+    for (const c of r.cells){
+      const t = c.s.trim();
+      if (/^(debit|withdrawals?|paid out|money out|dr)$/i.test(t))        hits.push({ kind:'debit',   c });
+      else if (/^(credit|deposits?|paid in|money in|cr)$/i.test(t))       hits.push({ kind:'credit',  c });
+      else if (/^(balance|running balance|closing balance)$/i.test(t))    hits.push({ kind:'balance', c });
+    }
+    if (hits.filter(h => h.kind !== 'balance').length >= 2 ||
+        (hits.length >= 2 && hits.some(h => h.kind === 'balance')))
+      return { y: r.y, cols: hits.map(h => ({ kind:h.kind, mid: h.c.x + h.c.w/2 })) };
+  }
+  return null;
+}
+
+function classifyCell(cell, cols){
+  const mid = cell.x + cell.w/2;
+  let best = null, dist = Infinity;
+  for (const col of cols){
+    const d = Math.abs(mid - col.mid);
+    if (d < dist){ dist = d; best = col; }
+  }
+  return dist <= 60 ? best.kind : null;    // must actually sit under a heading
+}
+
+function rowsToLines(rows){
+  const layout = findAmountColumns(rows);
+  const out = [];
+  for (const r of rows){
+    const below = !layout || r.y < layout.y;
+
+    // classify every number on the row first, so we know which one is the amount
+    const kinds = new Map();
+    let hasAmount = false;
+    if (below && layout){
+      for (const c of r.cells){
+        if (!CELL_NUM.test(c.s)) continue;
+        const k = classifyCell(c, layout.cols);
+        kinds.set(c, k);
+        if (k === 'debit' || k === 'credit') hasAmount = true;
+      }
+    }
+
+    let line = '', end = null;
+    for (const c of r.cells){
+      let txt = c.s;
+      if (kinds.has(c)){
+        const kind = kinds.get(c);
+        if (kind === 'balance') continue;                     // a running total, not a transaction
+        // once the real amount is identified, a stray number is a reference, not money
+        if (kind === null && hasAmount) continue;
+        if (kind === 'debit'  && !/^\s*-/.test(txt)) txt = '-' + txt.trim();
+        if (kind === 'credit') txt = txt.trim().replace(/^\+/, '');
+      }
+      if (end !== null){
+        const gap = c.x - end;
+        if (gap > 8) line += '  ';                            // column break
+        else if (gap > 0.8) line += ' ';                      // word break
+      }
+      line += txt; end = c.x + c.w;
+    }
+    const t = line.replace(/[ \t]{3,}/g, '  ').trim();
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+const itemsToLines = items => rowsToLines(itemsToRows(items));
+
+async function pdfToLines(file, onProgress){
+  if (!(await ensurePdfJs()))
+    throw new Error('The PDF reader could not be loaded. Check your connection, or use the Paste tab instead.');
+  const data = new Uint8Array(await file.arrayBuffer());
+  let doc;
+  try {
+    doc = await window.pdfjsLib.getDocument({ data, isEvalSupported:false }).promise;
+  } catch(e){
+    if (/password/i.test(String(e && e.message)))
+      throw new Error('That PDF is password protected. Remove the password, or copy the rows into the Paste tab.');
+    throw new Error('That file could not be read as a PDF.');
+  }
+  const lines = [];
+  for (let p = 1; p <= doc.numPages; p++){
+    if (onProgress) onProgress(p, doc.numPages);
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    lines.push(...itemsToLines(tc.items));   // sign and balance handled per page
+  }
+  if (!lines.length)
+    throw new Error('No text found in that PDF — it is probably a scan. Export a CSV from online banking instead.');
+  return lines;
+}
+
 async function readTable(file){
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'xlsx' || ext === 'xls'){
@@ -2823,14 +2979,81 @@ let RAW = null, HDR = 0;
 
 function setStep(n){ $$('#impSteps .step').forEach((s,i)=>{ s.className = 'step' + (i===n?' on':i<n?' ok':''); }); }
 
+let PDF_LINES = null, PDF_NAME = '';
+
 async function handleFile(file){
   try {
+    if (await isPdf(file)) return handlePdf(file);
+
     RAW = await readTable(file);
     if (!RAW || RAW.length < 2) return toast('That file has no readable rows', true);
+    // a spreadsheet always has more than one column somewhere in the first rows
+    const widest = Math.max(...RAW.slice(0, 12).map(r => (r||[]).length));
+    if (widest < 2){
+      $('#mapWrap').classList.add('hide');
+      return toast('That file has no columns to map. Export it as CSV or Excel, or use the Paste tab.', true);
+    }
     HDR = findHeader(RAW);
     setStep(1);
     renderMapper(file.name);
-  } catch(e){ console.error(e); toast('Could not read that file — try exporting as CSV', true); }
+  } catch(e){
+    console.error(e);
+    toast(e.message || 'Could not read that file — try exporting as CSV', true);
+  }
+}
+
+/* PDFs skip the column mapper entirely — there are no columns, only text */
+async function handlePdf(file){
+  PDF_NAME = file.name;
+  setStep(1);
+  const host = $('#mapWrap');
+  host.classList.remove('hide');
+  host.innerHTML = `<div class="card"><h3>Reading the PDF</h3>
+    <div class="sub" id="pdfProg">Loading the reader…</div></div>`;
+  try {
+    PDF_LINES = await pdfToLines(file, (p, n) =>
+      $('#pdfProg').textContent = `Reading page ${p} of ${n}…`);
+    renderPdfCard();
+  } catch(e){
+    console.error(e);
+    host.innerHTML = `<div class="card"><h3>That PDF could not be read</h3>
+      <div class="sub">${esc(e.message||'Unknown error')}</div>
+      <div class="mfoot"><button class="btn ghost" id="pdfBack">Start over</button></div></div>`;
+    $('#pdfBack').onclick = () => { host.classList.add('hide'); setStep(0); };
+  }
+}
+
+function renderPdfCard(){
+  const host = $('#mapWrap');
+  const dated = PDF_LINES.filter(l => /\d{1,2}[-\/.][A-Za-z0-9]{2,}[-\/.]\d{2,4}|\d{4}-\d{2}-\d{2}/.test(l)).length;
+  host.innerHTML = `<div class="card">
+    <h3>Read from the PDF</h3>
+    <div class="sub">${esc(PDF_NAME)} · ${PDF_LINES.length} lines of text, ${dated} with a date on them</div>
+    <div class="row c2">
+      <div><label class="fld">Account</label><select id="pdfAcct">${live('accounts').map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('') || '<option value="">Create an account first</option>'}</select></div>
+      <div><label class="fld">Date order</label><select id="pdfOrder">
+        <option value="auto">Detect automatically</option><option value="DMY">Day / Month / Year</option><option value="MDY">Month / Day / Year</option>
+      </select></div>
+    </div>
+    <div style="margin-top:16px"><label class="fld">What was pulled out of the pages</label>
+      <textarea id="pdfText" rows="9" spellcheck="false">${esc(PDF_LINES.join('\n'))}</textarea>
+      <div style="font-size:11.5px;color:var(--dim);margin-top:7px">
+        Every line with a date and an amount becomes a transaction; headers, totals and page furniture are ignored.
+        Edit this text if a row came out wrong.</div></div>
+    <div class="mfoot">
+      <button class="btn ghost" id="pdfCancel">Start over</button>
+      <button class="btn pri" id="pdfGo">Read these rows</button></div>
+  </div>`;
+  $('#pdfCancel').onclick = () => { PDF_LINES = null; host.classList.add('hide'); host.innerHTML=''; setStep(0); };
+  $('#pdfGo').onclick = () => {
+    const txt = $('#pdfText').value;
+    const { rows, skipped } = parsePasted(txt, $('#pdfOrder').value, $('#pdfAcct').value || null);
+    if (!rows.length)
+      return toast('No transactions found. Check the date order, or paste a few rows into the Paste tab to test.', true);
+    setStep(2);
+    showPreview(rows, host);
+    toast(`${rows.length} rows read · ${skipped.length} lines ignored`);
+  };
 }
 
 function renderMapper(filename){
