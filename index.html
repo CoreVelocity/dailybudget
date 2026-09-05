@@ -722,6 +722,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
           <li><b>Open it in its own browser tab.</b> Not in a preview pane, artifact viewer, or any embedded frame. Microsoft will not run a sign-in redirect inside an iframe whatever the app registration says. The connection check names the parent page when it detects this.</li>
           <li><b>It must be served over https.</b> Opening the file from disk will never work — Microsoft refuses a <i>file://</i> origin. Put it on GitHub Pages like your other tools.</li>
           <li><b>Allow popups for this site.</b> Sign-in opens in a popup rather than navigating away, the same way the Delivery Tracker does. If nothing appears when you press the button, the browser blocked it.</li>
+          <li><b>If you see "blocked inside a popup"</b>, the window you are looking at is the Microsoft sign-in popup itself — it came back to the app instead of closing. A popup cannot open another popup. Your app is still in the original tab; switch to it. If you would rather carry on in the window in front of you, press <i>Continue in a normal window</i> and it converts itself and reloads.</li>
           <li><b>If you see "interaction is currently in progress"</b>, a previous attempt was interrupted and left a lock in browser storage. The app clears stale locks on every load and retries once by itself; if it still complains, press <i>Reset sign-in state</i> in the error box or the connection check. That wipes the cached sign-in and reloads, and you sign in fresh.</li>
           <li><b>If the library still will not load</b>, put your own copy next to this page. Upload <i>msal-browser.min.js</i> (version 2.38.3) into the same folder as this file — it is the last source the app tries, and nothing on a network can block a file you serve yourself. Edge InPrivate with strict tracking prevention is a common culprit; a normal window usually works.</li>
           <li><b>Register the redirect URI.</b> Entra admin centre → App registrations → your app → Authentication → Add a platform → <i>Single-page application</i>. Paste the exact URL shown in the connection check, including the trailing slash. A mismatch of even one character fails.</li>
@@ -944,6 +945,19 @@ let MSAL_LOG = [];
 
 const inFrame = (() => { try { return window.self !== window.top; } catch(e){ return true; } })();
 
+/* MSAL treats a window as a popup when it has an opener AND window.name starts with
+   "msal." — that is the exact test inside msal-browser 2.38.3. If the sign-in popup
+   redirects back to this app and does not close, the app ends up running inside it,
+   and every later sign-in throws block_nested_popups. Clearing window.name turns the
+   window back into an ordinary one, which is the way out. */
+function inMsalPopup(){
+  try {
+    return !!window.opener && window.opener !== window &&
+           typeof window.name === 'string' && window.name.indexOf('msal.') === 0;
+  } catch(e){ return false; }
+}
+function escapePopupContext(){ try { window.name = ''; } catch(e){} }
+
 function loadScript(src, ms = 9000){
   return new Promise((res, rej) => {
     const s = document.createElement('script');
@@ -980,6 +994,9 @@ function authDiagnosis(){
   const proto = location.protocol;
   const secure = window.isSecureContext && (proto === 'https:' || location.hostname === 'localhost');
 
+  if (inMsalPopup()) out.push({ bad:1, t:'Running inside the sign-in popup',
+    d:'This window <b>is</b> the Microsoft sign-in popup — it redirected back here instead of closing. A popup may not open another popup, so sign-in is blocked. Press <b>Continue in a normal window</b> below and this window becomes ordinary again.' });
+
   if (inFrame) out.push({ bad:1, t:'Running inside a frame',
     d:'This page is embedded in another page — a preview pane, an artifact viewer, or an iframe. Microsoft will not run a sign-in redirect in here no matter how the app registration is configured. <b>Open this URL in its own browser tab.</b>' });
 
@@ -991,7 +1008,7 @@ function authDiagnosis(){
     d:'None of the sources below returned the library. If they all say blocked, something on this network or in the browser is stopping them — strict tracking prevention, an ad blocker, or a filter. Allow this site, try another browser, or host your own copy of msal-browser.min.js next to this page (it is the last source in the list).' });
   else out.push({ bad:0, t:'Sign-in library loaded', d:'Version 2.38.3, the same one the Delivery Tracker uses.' });
 
-  if (!inFrame && secure && loaded) out.push({ bad:0, t:'Ready to sign in',
+  if (!inFrame && !inMsalPopup() && secure && loaded) out.push({ bad:0, t:'Ready to sign in',
     d:'Sign-in opens in a popup, so allow popups for this site. If it fails after the popup, the redirect URI below does not exactly match the one registered on the app.' });
   return out;
 }
@@ -1101,16 +1118,31 @@ async function bootAuth(){
 async function interactiveSignIn(){
   if (!(await msalReady())) throw new Error('The sign-in library is not loaded.');
   const req = { scopes: CONFIG.scopes, loginHint: CONFIG.allowedUser || undefined, prompt: 'select_account' };
+
+  // A popup cannot open a popup. Leave that context first, then reload and try again.
+  if (inMsalPopup()){
+    escapePopupContext();
+    sessionStorage.setItem('independence:resume-signin', '1');
+    location.reload();
+    throw new Error('Leaving the sign-in popup — this window will reload.');
+  }
+
   let res;
   try {
     res = await MSALAPP.loginPopup(req);
   } catch(e){
-    // a stale lock is the usual cause — clear it and give it one more go
-    if (/interaction_in_progress/i.test(String(e.errorCode || e.message || ''))){
+    const code = String(e.errorCode || e.message || '');
+    if (/interaction_in_progress/i.test(code)){
       clearInteractionLock();
       await new Promise(r => setTimeout(r, 250));
       res = await MSALAPP.loginPopup(req);
-    } else throw e;
+    }
+    // popup blocked by the browser, or nested — fall back to a full-page redirect
+    else if (/popup_window_error|empty_window_error|block_nested_popups|popup.*blocked/i.test(code)){
+      await MSALAPP.loginRedirect(req);
+      throw new Error('Continuing sign-in in this window…');
+    }
+    else throw e;
   }
   const acct = res.account;
   if (!accountAllowed(acct)){
@@ -3217,12 +3249,14 @@ function renderDiag(){
       ${CONFIG.allowedUser ? `<label>Restricted to</label><code>${esc(CONFIG.allowedUser)}</code>` : ''}
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      ${inMsalPopup() ? `<button class="btn pri sm" id="escPopup2">Continue in a normal window</button>` : ''}
       ${inFrame ? `<button class="btn pri sm" id="popOut">Open in its own tab</button>` : ''}
       <button class="btn ghost sm" id="retryLib">Retry loading</button>
       <button class="btn ghost sm" id="resetAuth2">Reset sign-in state</button>
       <button class="btn ghost sm" id="copyUri">Copy redirect URI</button>
     </div></div>`;
 
+  const esc2 = $('#escPopup2'); if (esc2) esc2.onclick = () => { escapePopupContext(); location.reload(); };
   const pop = $('#popOut'); if (pop) pop.onclick = () => window.open(location.href, '_blank', 'noopener');
   $('#retryLib').onclick = async e => {
     e.target.textContent = 'Trying…'; e.target.disabled = true;
@@ -3241,6 +3275,24 @@ function renderDiag(){
 }
 
 (async () => {
+  /* If this window IS the sign-in popup, it should finish the handshake and close,
+     not present the app. Only if closing fails do we offer a way to carry on here. */
+  if (inMsalPopup()){
+    $('#gate').innerHTML = `<div class="box">
+      <div class="mark">↗</div><h1>Finishing sign-in</h1>
+      <p id="popMsg">Completing the handshake and closing this window…</p>
+      <button class="btn pri" id="popContinue" style="padding:12px 26px;display:none">Continue in a normal window</button>
+      <p style="font-size:11.5px;color:var(--dim);margin-top:18px">This window was opened by the sign-in prompt. Your app is in the original tab.</p></div>`;
+    $('#popContinue').onclick = () => { escapePopupContext(); location.reload(); };
+    try { await msalReady(); } catch(e){}
+    try { window.close(); } catch(e){}
+    setTimeout(() => {
+      $('#popMsg').innerHTML = 'This window could not close itself. Go back to your original tab — or carry on here by converting this window into an ordinary one.';
+      $('#popContinue').style.display = 'inline-block';
+    }, 1200);
+    return;
+  }
+
   // wire the escape hatches first, so a sign-in failure can never leave a dead page
   $('#offlineBtn').onclick = () => start(false);
   $('#diagBtn').onclick = () => { const p = $('#diagPanel'); renderDiag(); p.classList.toggle('hide'); };
@@ -3263,15 +3315,20 @@ function renderDiag(){
     } catch(e){
       const m = String(e.message || e);
       const code = String(e.errorCode || '');
-      const stuck   = /interaction_in_progress/i.test(m + code);
+      const stuck     = /interaction_in_progress/i.test(m + code);
+      const nested    = /block_nested_popups/i.test(m + code) || inMsalPopup();
       const cancelled = /user_cancelled|popup_window_error|window_closed/i.test(m + code);
       $('#authErr').className = 'autherr';
       let extra = '';
-      if (stuck) extra = '<br><br>A previous sign-in attempt was left half-finished and its lock is still in storage. Press <b>Reset sign-in state</b> below, then try again.';
+      if (nested) extra = '<br><br>This window is the Microsoft sign-in popup, which came back here instead of closing. A popup cannot open another popup. Press <b>Continue in a normal window</b> — it converts this window and reloads.';
+      else if (stuck) extra = '<br><br>A previous attempt was left half-finished and its lock is still in storage. Press <b>Reset sign-in state</b>, then try again.';
       else if (cancelled) extra = '<br><br>The popup was closed or blocked. Allow popups for this site and try again.';
       $('#authErr').innerHTML = `<b>Could not sign you in.</b><br>${esc(m)}${extra}` +
         `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+           ${nested ? '<button class="btn pri sm" id="escPopup">Continue in a normal window</button>' : ''}
            <button class="btn sm" id="resetAuth">Reset sign-in state</button></div>`;
+      const escBtn = $('#escPopup');
+      if (escBtn) escBtn.onclick = () => { escapePopupContext(); location.reload(); };
       $('#resetAuth').onclick = () => {
         const n = resetAuthState();
         toast(`Cleared ${n} stored sign-in item${n===1?'':'s'} — reloading`);
@@ -3286,6 +3343,12 @@ function renderDiag(){
   await ensureMsal();
   $('#signIn').textContent = 'Sign in with Microsoft';
   $('#signIn').disabled = false;
+
+  // we just escaped a popup context and reloaded — carry on where we left off
+  if (sessionStorage.getItem('independence:resume-signin')){
+    sessionStorage.removeItem('independence:resume-signin');
+    setTimeout(() => $('#signIn').onclick(), 400);
+  }
 
   let signedIn = false;
   try { signedIn = await bootAuth(); }
