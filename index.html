@@ -698,7 +698,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <h3>What each page is for</h3>
         <details><summary>Overview</summary><p>Your standing right now. The <b>independence horizon</b> is the strip of sixty bars — one per month — showing what share of your living costs safe withdrawals from invested assets would cover. Where it crosses 100% is the date the money covers you. Below it, the insight panel reads your actual transactions and reports what it finds rather than offering generic advice.</p></details>
         <details><summary>Ledger</summary><p>Every transaction, filterable by text, category, account, type and date. Export the filtered view as CSV any time. Tapping a category cell is the fastest way to teach the app your merchants.</p></details>
-        <details><summary>Import</summary><p>Three routes in. <b>Upload</b> takes a PDF, CSV or Excel statement. A PDF is read directly — the text is pulled off the pages, the debit and credit columns are located so each amount gets the right sign, and running balances and reference numbers are discarded; you see the extracted text and can correct it before anything is added. A spreadsheet asks you to map the columns instead. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
+        <details><summary>Import</summary><p>Three routes in. <b>Upload</b> takes a PDF, CSV or Excel statement. A PDF is read directly — the text is pulled off the pages, the deposit and withdrawal columns are located so each amount gets the right sign, and running balances and reference numbers are discarded. Statements that print one transaction across several lines are handled too: each block starts at a date and takes its amount from wherever it lands, and when the statement omits a repeated date the previous one is carried forward. You see the extracted text as <i>date | description | amount</i> and can correct any line before anything is added. A spreadsheet asks you to map the columns instead. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
         <details><summary>Recurring</summary><p>Fixed commitments that post themselves. Press <i>Post due items</i> and everything outstanding is written to the ledger. These form the fixed base of your plan.</p></details>
         <details><summary>Targets</summary><p>Two halves. <b>Sinking funds</b> for lumpy costs — set the amount and the date and the monthly figure is worked out. <b>Monthly targets</b> put a ceiling on everyday categories; the pale marker on each bar shows where you'd be if the month were spent evenly.</p></details>
         <details><summary>Balance sheet</summary><p>Assets against liabilities, plus the <b>debt payoff simulator</b>: minimum payments versus avalanche versus snowball, with a slider for extra payment showing months and interest saved. Save a snapshot each month to build the net worth trend.</p></details>
@@ -839,9 +839,13 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.8.0';
-const APP_BUILT   = '2026-09-05';
+const APP_VERSION = '1.9.0';
+const APP_BUILT   = '2026-09-06';
 const CHANGELOG = [
+  { v:'1.9.0', d:'2026-09-06', notes:[
+    'Reads block-format PDF statements where one transaction spans several lines',
+    'Handles dates written without separators, and carries the date forward when a statement omits it',
+    'Strips card numbers, reference codes and posting stamps so the merchant name leads' ]},
   { v:'1.8.0', d:'2026-09-05', notes:[
     'PDF bank statements can be imported directly — text is read from the pages, no column mapping',
     'Debits and credits are signed from the column they sit in, and running balances and reference numbers are ignored',
@@ -1389,6 +1393,14 @@ function parseDate(raw, order){
   let m;
   if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)))
     return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  // 19May2026 / 19 May 2026 / 19-May-26 — separators optional
+  if ((m = s.match(/^(\d{1,2})\s*([A-Za-z]{3,9})\s*(\d{2,4})$/))){
+    const mm = monthNum(m[2]);
+    if (mm){
+      let y = +m[3]; if (y < 100) y += 2000;
+      return `${y}-${String(mm).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+    }
+  }
   if ((m = s.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3,})[-\/\s](\d{2,4})/))){
     const mm = monthNum(m[2]); if (mm){
       let y = +m[3]; if (y < 100) y += 2000;
@@ -1494,18 +1506,117 @@ const CELL_NUM = /^[\s(]*[-+]?(?:AED|USD|\$)?\s?\d+(?:[,\s]\d{3})*(?:\.\d{1,2})?
    numbers underneath can be signed correctly and the running balance dropped. */
 function findAmountColumns(rows){
   for (const r of rows.slice(0, 40)){
-    const hits = [];
+    const hits = []; let dateCol = null;
     for (const c of r.cells){
       const t = c.s.trim();
-      if (/^(debit|withdrawals?|paid out|money out|dr)$/i.test(t))        hits.push({ kind:'debit',   c });
-      else if (/^(credit|deposits?|paid in|money in|cr)$/i.test(t))       hits.push({ kind:'credit',  c });
-      else if (/^(balance|running balance|closing balance)$/i.test(t))    hits.push({ kind:'balance', c });
+      if (/^(date|txn date|transaction date|value date|posting date)$/i.test(t)){
+        if (!dateCol) dateCol = { mid: c.x + c.w/2, x: c.x };
+      }
+      else if (/^(debit|debits|withdrawals?|withdrawn|paid out|money out|dr)$/i.test(t))   hits.push({ kind:'debit',   c });
+      else if (/^(credit|credits|deposits?|deposited|paid in|money in|cr)$/i.test(t))      hits.push({ kind:'credit',  c });
+      else if (/^(balance|running balance|closing balance|balance \(dr=debit\))$/i.test(t)) hits.push({ kind:'balance', c });
     }
     if (hits.filter(h => h.kind !== 'balance').length >= 2 ||
         (hits.length >= 2 && hits.some(h => h.kind === 'balance')))
-      return { y: r.y, cols: hits.map(h => ({ kind:h.kind, mid: h.c.x + h.c.w/2 })) };
+      return { y: r.y, dateCol, cols: hits.map(h => ({ kind:h.kind, mid: h.c.x + h.c.w/2 })) };
   }
   return null;
+}
+
+/* ── Block statements ──
+   Many banks print one transaction as a block: the date on the first line, the
+   description over several lines beneath it, and the amount aligned with whichever
+   line it lands on. Nothing can be read line by line, so we group rows into blocks
+   that start at each date and take the amount from the deposit or withdrawal
+   column anywhere inside the block. */
+const BLOCK_DATE = /^(\d{1,2}\s*[A-Za-z]{3,9}\s*\d{2,4}|\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|[A-Za-z]{3,9}\s+\d{1,2},?\s*\d{4})$/;
+
+function rowsToBlocks(rows, layout){
+  if (!layout || !layout.dateCol) return null;
+  const dateMid = layout.dateCol.mid;
+  const blocks = [];
+  let cur = null;
+
+  for (const r of rows){
+    if (r.y >= layout.y) continue;                       // header and everything above it
+    const dateCell = r.cells.find(c =>
+      Math.abs((c.x + c.w/2) - dateMid) <= 70 && BLOCK_DATE.test(c.s.trim()));
+
+    // does this row carry any text that is not an amount or the date?
+    const hasText = r.cells.some(c => c !== dateCell && c.s.trim() && !CELL_NUM.test(c.s.trim()));
+
+    if (dateCell){
+      if (cur) blocks.push(cur);
+      cur = { date: dateCell.s.trim(), desc: [], amt: null, dated: true };
+    }
+    else if (cur && cur.amt != null && hasText){
+      // the amount closed the previous block; statements omit the date when the
+      // next transaction falls on the same day, so carry it forward
+      blocks.push(cur);
+      cur = { date: cur.date, desc: [], amt: null, dated: false };
+    }
+    if (!cur) continue;
+
+    for (const c of r.cells){
+      if (c === dateCell) continue;
+      const txt = c.s.trim();
+      if (!txt) continue;
+      if (CELL_NUM.test(txt)){
+        const kind = classifyCell(c, layout.cols);
+        if (kind === 'balance') continue;                 // a running total
+        if (kind === 'debit' || kind === 'credit'){
+          if (cur.amt == null){
+            const v = Math.abs(parseAmount(txt) ?? 0);
+            if (v) cur.amt = (kind === 'debit' ? -v : v);
+          }
+          continue;
+        }
+        // a number that is not under an amount heading is a reference, but it may
+        // still be part of the description, so keep it there
+      }
+      cur.desc.push(txt);
+    }
+  }
+  if (cur) blocks.push(cur);
+
+  // a description that wrapped past the amount line becomes an orphan block —
+  // give its words back to the transaction they belong to
+  const FOOTER = /(closing|opening) balance|balance (brought|carried) (forward|down)|page \d+\s*(of|\/)\s*\d+|end of statement|continued|sub-?total|^total\b|statement (of account|date|period)|\biban\b|account number|thank you for banking/i;
+  const merged = [];
+  for (const b of blocks){
+    const txt = b.desc.join(' ');
+    if (b.amt == null && !b.dated && merged.length && b.desc.length && !FOOTER.test(txt))
+      merged[merged.length - 1].desc.push(...b.desc);   // a wrapped description line
+    else merged.push(b);                                 // page furniture, or a real block
+  }
+  merged.forEach(b => { b.text = cleanBlockDesc(b.desc.join(' ')); });
+  const out = merged.filter(b => b.amt != null && b.text);
+  if (!out.length) return null;
+  // an explicit three-field form: nothing downstream has to guess which number is the amount
+  return out.map(b => `${b.date} | ${b.text} | ${b.amt.toFixed(2)}`);
+}
+
+/* Block descriptions carry a lot of bank furniture around the merchant name.
+   Strip the parts that are the same on every row so the merchant leads — that is
+   what the categoriser matches on and what you want to read in the ledger. */
+function cleanBlockDesc(raw){
+  let t = ' ' + String(raw).replace(/\s+/g, ' ').trim() + ' ';
+  const cuts = [
+    /\bREF\s+[A-Z0-9][A-Z0-9-]{3,}\b/gi,          // REF A895-68924
+    /\bCard Ending (?:with )?\d{3,4}\b/gi,         // Card Ending with 4771
+    /\b\d{5,8}\s?(?:AED|USD)\b/gi,                // 006684AED — an internal serial
+    /\b\d{1,2}[A-Z]{3}\d{2,4}\b/gi,               // 17MAY26 posting stamp
+    /\b(?:V|VISA|MC|MASTERCARD)\s+DEBIT\b/gi,
+    /\bPOS (?:PURCHASE|TRXN)\b/gi,
+    /\bTRN\s*[:#]?\s*\d+\b/gi,
+    /\s\d{5,}\s*$/                                  // a bare reference number at the end
+  ];
+  for (const re of cuts) t = t.replace(re, ' ');
+  // an amount that was printed inside the description, now orphaned
+  t = t.replace(/\s\d{1,3}(?:,\d{3})*\.\d{2}\s/g, ' ');
+  t = t.replace(/\s+/g, ' ').replace(/^[\s\-–—·|]+|[\s\-–—·|]+$/g, '').trim();
+  const cleaned = t.length >= 3 ? t : String(raw).replace(/\s+/g,' ').trim();
+  return cleaned.slice(0, 90);
 }
 
 function classifyCell(cell, cols){
@@ -1560,7 +1671,11 @@ function rowsToLines(rows){
   return out;
 }
 
-const itemsToLines = items => rowsToLines(itemsToRows(items));
+function itemsToLines(items){
+  const rows = itemsToRows(items);
+  const layout = findAmountColumns(rows);
+  return rowsToBlocks(rows, layout) || rowsToLines(rows);
+}
 
 async function pdfToLines(file, onProgress){
   if (!(await ensurePdfJs()))
@@ -1676,6 +1791,21 @@ function parsePasted(text, order, acctId){
   const AMT = /(\(?-?\+?\s?(?:AED|USD|\$)?\s?\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?\)?(?:\s?(?:CR|DR))?)\s*$/i;
 
   for (const line of lines){
+    // date | description | amount — produced by the PDF block reader, and editable
+    if (line.includes('|')){
+      const parts = line.split('|').map(x => x.trim());
+      if (parts.length === 3){
+        const d = parseDate(parts[0], order);
+        const a = parseAmount(parts[2]);
+        if (d && a != null && a !== 0){
+          out.push(makeTxn({ date:d, description: parts[1] || 'Transaction', amount:a,
+                             currency:'AED', accountId: acctId, source:'pdf' }));
+          continue;
+        }
+      }
+      skipped.push(line); continue;
+    }
+
     const dm = line.match(DATE_LEAD);
     if (!dm){ skipped.push(line); continue; }
     const date = parseDate(dm[1], order);
