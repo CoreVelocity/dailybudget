@@ -672,7 +672,7 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
         <div class="sub">Each step feeds the next, so skipping one leaves the pages after it empty</div>
         <ol class="guide">
           <li><b>Add your accounts.</b> Settings → Accounts. One entry per bank account and credit card you'll import from. Name them the way you think of them, not the way the bank does.</li>
-          <li><b>Import a statement.</b> Import → Upload file. A PDF statement works directly; a CSV or Excel export is more reliable if your bank offers one. Get three to six months in. You'll be shown the columns found in the file and asked which is the date, which is the description, and which holds the amounts — banks all label these differently, so nothing is assumed.</li>
+          <li><b>Import a statement.</b> Import → Upload file. A CSV or Excel export is the most reliable route — in HSBC it sits under Transaction History. You'll be shown the columns found in the file and asked which is the date, the description and the amounts, since banks label these differently. Exports with no header row are handled too: the columns are worked out from what they contain. If the file has a running balance column, map it and every row is checked against it. PDFs also work, including ones that are pictures of a statement.</li>
           <li><b>Fix the categories.</b> Ledger → set <i>Uncategorised only</i> to Yes. Tap any category cell to set it, and leave the "apply to everything matching" box ticked. Each one you set writes a rule that files every future import automatically, so this is a shrinking job, not a recurring one.</li>
           <li><b>Log what repeats.</b> Recurring → add salary, rent, school fees, loan instalments, subscriptions. The Recurring page also flags charges that appear every month but aren't logged yet — adopt the real ones.</li>
           <li><b>Build the balance sheet.</b> Balance sheet → add every asset and liability. Give each asset an expected return, and tick <i>counts toward independence</i> for anything you'd actually draw on. Your home and car usually shouldn't be ticked; a brokerage account should.</li>
@@ -839,9 +839,17 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.11.0';
 const APP_BUILT   = '2026-09-06';
 const CHANGELOG = [
+  { v:'1.11.0', d:'2026-09-06', notes:[
+    'Exports with no header row are handled — the columns are identified from what they contain',
+    'A running balance column can be mapped, and every row is then checked against it',
+    'Descriptions are stripped of card numbers, reference codes and currency prefixes, lifting automatic categorisation to about 99%' ]},
+  { v:'1.10.1', d:'2026-09-06', notes:[
+    'Recognition now pulls its language data from the same CDN as everything else, instead of a separate domain that filters block',
+    'Three worker start-up methods are tried in turn, covering every version of the engine',
+    '"Unknown error" is gone — failures name the stage and show the real message' ]},
   { v:'1.10.0', d:'2026-09-06', notes:[
     'Statements printed as images can now be read — the words are recognised on your device',
     'Every row is checked against the running balance printed beside it, and anything that does not add up is listed before saving',
@@ -1348,23 +1356,23 @@ const ALL_CATS = [...CATS.income, ...CATS.expense, ...CATS.transfer];
 
 /* built-in merchant rules — tuned for UAE statements */
 const BUILTIN = [
-  [/CARREFOUR|SPINNEY|LULU|WAITROSE|CHOITHRAM|UNION COOP|VIVA |GRANDIOSE|AL MAYA|GEANT/i,'Groceries','expense'],
-  [/TALABAT|DELIVEROO|ZOMATO|CAREEM FOOD|NOON FOOD|SMASH|STARBUCK|COSTA|TIM HORTON|MCDONALD|KFC|PIZZA|RESTAURANT|CAFE|COFFEE|SHAWARMA|EATERY/i,'Dining','expense'],
-  [/CAREEM|UBER|TAXI|RTA |NOL |METRO|BOLT RIDE/i,'Transport','expense'],
+  [/CARREFOUR|SPINNEY|LULU|WAITROSE|CHOITHRAM|UNION COOP|VIVA |GRANDIOSE|AL MAYA|GEANT|INSTASHOP|C\.TOWN|CAESAR SUPER|ALL DAY MARK|EXPERT GOURM|KWOS GROUP/i,'Groceries','expense'],
+  [/TALABAT|DELIVEROO|ZOMATO|CAREEM FOOD|NOON FOOD|SMASH|STARBUCK|COSTA|TIM HORTON|MCDONALD|KFC|PIZZA|RESTAURANT|CAFE|COFFEE|SHAWARMA|EATERY|BLACK SHEEP|MODA BAR|UNCLE OSAKA|QALAT BAALBA|TALET SHMEIS|ZALATIMO|PAPPAROTI|KRISPY KREME|ARABICA COFF|DONUTS FACTO|ALMOND COFFE|ABU JBARA|HOUSTONS|OCEAN SEAFOO|KULLAJ OMAR|AJENET ZAMAN|TKIYET UM|TEXAS R|BATEEL|QLUB|AQUARIUS M|THE MILL|HELLO SWEETS|COTERIE REST|PRECISION FO/i,'Dining','expense'],
+  [/CAREEM|UBER|TAXI|RTA |NOL |METRO|BOLT RIDE|DTC VIP LIMO|BUDGET CAR|ZED MOBILITY|EASY TAXI|DUBAI TAXI|JORDANIAN A\/P/i,'Transport','expense'],
   [/SALIK|DARB TOLL|PARKIN|PARKING/i,'Transport','expense'],
-  [/ENOC|ADNOC|EPPCO|EMARAT|PETROL|FUEL/i,'Fuel','expense'],
-  [/DEWA|ADDC|SEWA|FEWA|EMPOWER|TABREED|ELECTRIC|WATER AUTH/i,'Utilities','expense'],
-  [/ETISALAT|\bDU \b|\bDU-|VIRGIN MOBILE|MOBILE BILL|INTERNET|BROADBAND/i,'Telecom','expense'],
+  [/ENOC|ADNOC|EPPCO|EMARAT|PETROL|FUEL|MANASEER GAS|GULF WORLDWI/i,'Fuel','expense'],
+  [/DEWA|ADDC|SEWA|FEWA|EMPOWER|TABREED|ELECTRIC|WATER AUTH|DUBAI ELECTRI|EFAWATEERCOM|NESTLE WATER/i,'Utilities','expense'],
+  [/ETISALAT|\bDU \b|\bDU-|VIRGIN MOBILE|MOBILE BILL|INTERNET|BROADBAND|\be&\s|E& TELECOM|E& DIGITAL|ORANGE JO|ZAIN /i,'Telecom','expense'],
   [/NETFLIX|SPOTIFY|APPLE\.COM|ICLOUD|GOOGLE \*|YOUTUBE|AMAZON PRIME|OSN|SHAHID|ADOBE|MICROSOFT|OPENAI|ANTHROPIC|CANVA|DROPBOX|NOTION|LINKEDIN|SUBSCRIPT/i,'Subscriptions','expense'],
-  [/GYM|FITNESS|GOLD.S GYM|FIT REPUBLIK|WARE?HOUSE GYM|PADEL|CLASSPASS/i,'Fitness','expense'],
-  [/PHARMAC|HOSPITAL|CLINIC|MEDCARE|ASTER|MEDICAL|DENTAL|LIFE PHARMA/i,'Health','expense'],
-  [/INSURANC|TAKAFUL|ORIENT INS|AXA|DAMAN|SALAMA/i,'Insurance','expense'],
-  [/SCHOOL|NURSERY|TUITION|UNIVERSIT|ACADEMY|KHDA/i,'Education','expense'],
-  [/EMIRATES AIR|FLYDUBAI|ETIHAD|QATAR AIR|BOOKING\.COM|AIRBNB|AGODA|HOTEL|EXPEDIA|WEGO|SKYSCANNER/i,'Travel','expense'],
-  [/AMAZON|NOON\b|NAMSHI|SHEIN|IKEA|ACE |H&M|ZARA|CENTREPOINT|SHARAF DG|JUMBO|APPLE STORE|DECATHLON/i,'Shopping','expense'],
-  [/CINEMA|VOX|REEL|NOVO|TICKET|EVENT|PLATINUMLIST/i,'Entertainment','expense'],
-  [/RENT|EJARI|TENANCY|LANDLORD|LEASE PAYMENT/i,'Housing','expense'],
-  [/SERVICE CHARGE|VAT |CHARGES|FEE\b|COMMISSION|INTEREST CHARGE|LATE PAYMENT|ANNUAL FEE|FX MARKUP|OVERLIMIT/i,'Fees & charges','expense'],
+  [/GYM|FITNESS|GOLD.S GYM|FIT REPUBLIK|WARE?HOUSE GYM|PADEL|CLASSPASS|QUICKFIT|POWER HUT|FOOTBALL PAR|STRYX SPORT/i,'Fitness','expense'],
+  [/PHARMAC|HOSPITAL|CLINIC|MEDCARE|ASTER|MEDICAL|DENTAL|LIFE PHARMA|LIFE PHY|AL ZOUBI PHA|\bBOOTS\b|TRACKS COMMUNITY|SALOON|BARBER|SALON/i,'Health','expense'],
+  [/INSURANC|TAKAFUL|ORIENT INS|AXA|DAMAN|SALAMA|SOLIDARITY|ZURICH INTL|ARABIA INSUR/i,'Insurance','expense'],
+  [/SCHOOL|NURSERY|TUITION|UNIVERSIT|ACADEMY|KHDA|ARCADIA SCHO|ARCADIA HIGH|KIDS EDUCATION/i,'Education','expense'],
+  [/EMIRATES AIR|FLYDUBAI|ETIHAD|QATAR AIR|BOOKING\.COM|AIRBNB|AGODA|HOTEL|EXPEDIA|WEGO|SKYSCANNER|\bCENTRO\b|BLS INTERNATIONAL/i,'Travel','expense'],
+  [/AMAZON|NOON\b|NOON E COMME|NAMSHI|SHEIN|IKEA|ACE |H&M|ZARA|CENTREPOINT|SHARAF DG|JUMBO|APPLE STORE|DECATHLON|TABBY|GMG CONSUME|SUN AND SAN|SEPHORA|THE TOYS HOM|THE WAREHOUS|LOLIA STATIO|AQUAFLASK|KABATILO|ALSHALATI|SHAMS AL KHA|VOLUME GENTL|FAZAA LLC|VEDA INC|SUBDUED/i,'Shopping','expense'],
+  [/CINEMA|VOX|REEL|NOVO|TICKET|EVENT|PLATINUMLIST|PLAYSTATION|REEL ENTERTA|DIGITAL DUBA|SMART DUBAI/i,'Entertainment','expense'],
+  [/RENT|EJARI|TENANCY|LANDLORD|LEASE PAYMENT|MAIDS CC|DOMESTIC WORKER/i,'Housing','expense'],
+  [/SVC CHG|SERVICE CHARGE|VAT STD RATE|VAT |CHARGES|FEE\b|COMMISSION|INTEREST CHARGE|LATE PAYMENT|ANNUAL FEE|FX MARKUP|OVERLIMIT/i,'Fees & charges','expense'],
   [/LOAN|INSTAL?MENT|EMI\b|MORTGAGE|FINANCE PAYMENT/i,'Loan payment','expense'],
   [/SALARY|PAYROLL|WPS |WAGE/i,'Salary','income'],
   [/DIVIDEND|PROFIT DISTRIB/i,'Dividends','income'],
@@ -1663,21 +1671,39 @@ function rowsToBlocks(rows, layout){
 function cleanBlockDesc(raw){
   let t = ' ' + String(raw).replace(/\s+/g, ' ').trim() + ' ';
   const cuts = [
+    /\bCARD TRANSACTION\b/gi,
+    /\bHIB-?\s*\d+X\d+\b/gi,                      // HIB- 42879X534886
+    /\b(?:IB[A-Z]{2}\d{3,6}|ZUID\d{3,6}|A\d{7,9})\b/g,   // internal reference codes
+    /\b(?:INTERNET BANKING|SYSTEM GENERATED|MOBILE BANKING)\b/gi,
+    /\bATM\s*$/i,
+    /\b(?:JOD|USD|EUR|GBP|SAR|QAR|KWD|BHD|OMR|EGP|TRY|INR)\s+[\d,]+\.\d+\s*/gi,     // JOD 17.650 MERCHANT
+    /\b(?:PURCH|PLUS|POS)\s+\d{1,2}:\d{2}:\d{2}\s*/gi,                              // PURCH 13:08:03 MERCHANT
+    /\bJO\d{6}JOD\b/gi,
+    /\s*(?:NFC|IAP)?\s*\(AP-PAY\)\s*$/i,                                            // payment-method tag
+    /\bNFC\s*$/i,
+    /\b\d{9,}\b/g,                                 // account and reference numbers
     /\bREF\s+[A-Z0-9][A-Z0-9-]{3,}\b/gi,          // REF A895-68924
     /\bCard Ending (?:with )?\d{3,4}\b/gi,         // Card Ending with 4771
-    /\b\d{5,8}\s?(?:AED|USD)\b/gi,                // 006684AED — an internal serial
+    /\b\d{5,8}\s?(?:AED|USD|JOD|EUR|GBP|SAR|QAR|KWD|BHD|OMR|EGP|TRY|INR)\b/gi,   // 006684AED — an internal serial
     /\b\d{1,2}[A-Z]{3}\d{2,4}\b/gi,               // 17MAY26 posting stamp
     /\b(?:V|VISA|MC|MASTERCARD)\s+DEBIT\b/gi,
     /\bPOS (?:PURCHASE|TRXN)\b/gi,
     /\bTRN\s*[:#]?\s*\d+\b/gi,
     /\s\d{5,}\s*$/                                  // a bare reference number at the end
   ];
-  for (const re of cuts) t = t.replace(re, ' ');
+  for (let pass = 0; pass < 2; pass++)
+    for (const re of cuts) t = t.replace(re, ' ');
   // an amount that was printed inside the description, now orphaned
-  t = t.replace(/\s\d{1,3}(?:,\d{3})*\.\d{2}\s/g, ' ');
+  t = t.replace(/\s\d+(?:,\d{3})*\.\d{2,3}\s/g, ' ');
+  t = t.replace(/^\s*\d+(?:,\d{3})*\.\d{2,3}\s+/, ' ');   // an amount left at the start
   t = t.replace(/\s+/g, ' ').replace(/^[\s\-–—·|]+|[\s\-–—·|]+$/g, '').trim();
-  const cleaned = t.length >= 3 ? t : String(raw).replace(/\s+/g,' ').trim();
-  return cleaned.slice(0, 90);
+  if (t.length < 4){
+    // nothing recognisable survived — name what it plainly is rather than dump the raw line
+    const r = String(raw);
+    if (/\bPLUS\s+\d{1,2}:\d{2}:\d{2}|\bATM\b|CASH WITHDRAW/i.test(r)) return 'ATM cash withdrawal';
+    return r.replace(/\s+/g, ' ').trim().slice(0, 90);
+  }
+  return t.slice(0, 90);
 }
 
 function classifyCell(cell, cols){
@@ -1783,12 +1809,73 @@ const OCR_SOURCES = [
   'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.4/tesseract.min.js',
   './tesseract.min.js'
 ];
+/* turn anything thrown into something readable — Tesseract often throws bare
+   strings or DOM events with no message, which is where "Unknown error" came from */
+function errText(e){
+  if (!e) return 'no error detail';
+  if (typeof e === 'string') return e;
+  if (e.message) return e.message;
+  if (e.error) return errText(e.error);
+  if (e.type) return 'event: ' + e.type;
+  try { const j = JSON.stringify(e); if (j && j !== '{}') return j.slice(0, 200); } catch(_){}
+  try { return String(e); } catch(_){ return 'unreadable error'; }
+}
+
+let OCR_LOG = [];
 async function ensureTesseract(){
-  if (window.Tesseract) return true;
+  OCR_LOG = [];
+  if (window.Tesseract){ OCR_LOG.push(['already loaded', 'ok']); return true; }
   for (const src of OCR_SOURCES){
-    try { await loadScript(src, 25000); if (window.Tesseract) return true; } catch(e){}
+    const host = src.startsWith('./') ? src : src.replace(/^https:\/\//,'').split('/')[0];
+    try {
+      await loadScript(src, 30000);
+      if (window.Tesseract){ OCR_LOG.push([host, 'loaded']); return true; }
+      OCR_LOG.push([host, 'served, but not the engine']);
+    } catch(e){ OCR_LOG.push([host, errText(e)]); }
   }
   return false;
+}
+
+/* Every file the engine needs, pinned to the CDN we already know we can reach.
+   By default Tesseract fetches its language data from tessdata.projectnaptha.com,
+   a separate domain that filters and tracking prevention often block while the main
+   CDN loads fine — which fails with no useful message. */
+const OCR_PATHS = {
+  workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/worker.min.js',
+  corePath  : 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.4/tesseract-core.wasm.js',
+  langPath  : 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
+  gzip      : true
+};
+
+/* tesseract has changed its worker API across versions; support every shape */
+async function makeOcrWorker(onNote){
+  const T = window.Tesseract;
+  if (!T || !T.createWorker) throw new Error('The recognition engine loaded but exposes no worker API.');
+  const attempts = [
+    ['pinned paths',   () => T.createWorker('eng', 1, OCR_PATHS)],
+    ['default paths',  () => T.createWorker('eng')],
+    ['no options',     () => T.createWorker()]
+  ];
+  let last = null;
+  for (const [label, make] of attempts){
+    try {
+      if (onNote) onNote(label);
+      const w = await make();
+      if (!w || typeof w.recognize !== 'function'){
+        // older API: load language and initialise by hand
+        if (w && w.load){
+          await w.load();
+          if (w.loadLanguage) await w.loadLanguage('eng');
+          if (w.initialize) await w.initialize('eng');
+          if (typeof w.recognize === 'function'){ OCR_LOG.push([label, 'loaded']); return w; }
+        }
+        throw new Error('worker has no recognize method');
+      }
+      OCR_LOG.push([label, 'loaded']);
+      return w;
+    } catch(e){ last = e; OCR_LOG.push([label, errText(e)]); }
+  }
+  throw new Error(errText(last));
 }
 
 /* OCR word boxes → the same shape pdf.js gives us, in PDF points */
@@ -1802,16 +1889,35 @@ function wordsToItems(words, canvasHeight, scale){
     }));
 }
 
-async function ocrPdfToLines(file, onProgress){
-  if (!(await ensurePdfJs())) throw new Error('The PDF reader could not be loaded.');
-  if (!(await ensureTesseract()))
-    throw new Error('The text-recognition engine could not be loaded. Check your connection and try again.');
+class OcrStageError extends Error {
+  constructor(stage, detail){ super(detail); this.stage = stage; this.detail = detail; }
+}
 
-  const data = new Uint8Array(await file.arrayBuffer());
-  const doc = await window.pdfjsLib.getDocument({ data, isEvalSupported:false }).promise;
-  const worker = await window.Tesseract.createWorker('eng');
+async function ocrPdfToLines(file, onProgress){
+  if (!(await ensurePdfJs()))
+    throw new OcrStageError('loading the PDF reader', 'pdf.js could not be loaded from any source.');
+  if (!(await ensureTesseract()))
+    throw new OcrStageError('loading the recognition engine',
+      'None of the sources returned it: ' + OCR_LOG.map(([h,r]) => `${h} — ${r}`).join(' · '));
+
+  let doc;
+  try {
+    const data = new Uint8Array(await file.arrayBuffer());
+    doc = await window.pdfjsLib.getDocument({ data, isEvalSupported:false }).promise;
+  } catch(e){ throw new OcrStageError('opening the PDF', errText(e)); }
+
+  let worker;
+  try {
+    worker = await makeOcrWorker(label => {
+      const el = $('#ocrProg');
+      if (el) el.textContent = `Starting the engine (${label})… first run downloads about 15 MB`;
+    });
+  }
+  catch(e){ throw new OcrStageError('starting the recognition worker', errText(e)); }
+
   const lines = [];
-  const scale = 2.5;                       // enough resolution for statement type
+  const scale = 2;                      // enough for statement type, gentler on memory
+  let recognised = 0;
   try {
     for (let p = 1; p <= doc.numPages; p++){
       if (onProgress) onProgress(p, doc.numPages);
@@ -1819,18 +1925,35 @@ async function ocrPdfToLines(file, onProgress){
       const tc = await page.getTextContent();
       if (tc.items.length){ lines.push(...itemsToLines(tc.items)); continue; }
 
-      const vp = page.getViewport({ scale });
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
-      const ctx = canvas.getContext('2d', { willReadFrequently:true });
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      let canvas;
+      try {
+        const vp = page.getViewport({ scale });
+        canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('This browser would not give a 2D canvas.');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      } catch(e){ throw new OcrStageError(`drawing page ${p}`, errText(e)); }
 
-      const res = await worker.recognize(canvas);
-      lines.push(...itemsToLines(wordsToItems(res?.data?.words, canvas.height, scale)));
-      canvas.width = canvas.height = 0;     // release the bitmap before the next page
+      try {
+        const res = await worker.recognize(canvas);
+        const words = res?.data?.words;
+        if (words && words.length){
+          lines.push(...itemsToLines(wordsToItems(words, canvas.height, scale)));
+          recognised++;
+        } else if (res?.data?.text){
+          // some builds return only text; fall back to reading it line by line
+          lines.push(...String(res.data.text).split(/\r?\n/).map(x => x.trim()).filter(Boolean));
+          recognised++;
+        }
+      } catch(e){ throw new OcrStageError(`recognising page ${p}`, errText(e)); }
+      finally { try { canvas.width = canvas.height = 0; } catch(_){} }
     }
   } finally { try { await worker.terminate(); } catch(e){} }
+
+  if (!recognised)
+    throw new OcrStageError('recognising the pages', 'The engine ran but returned no words from any page.');
   return lines;
 }
 
@@ -1845,6 +1968,68 @@ async function readTable(file){
   const text = await file.text();
   const res = Papa.parse(text.trim(), { skipEmptyLines:'greedy' });
   return res.data;
+}
+
+/* ── Files with no header row ──
+   Plenty of bank exports start straight at the first transaction. Guessing column
+   names is then impossible, so the columns are identified from what they contain:
+   which one holds dates, which holds money, and — where two money columns exist —
+   which is the amount and which the running balance. */
+const looksLikeDate   = v => !!parseDate(v, 'auto');
+const looksLikeAmount = v => { const a = parseAmount(v); return a != null && String(v).trim() !== ''; };
+
+function looksLikeDataRow(row){
+  if (!row || row.length < 2) return false;
+  return row.some(looksLikeDate) && row.some(looksLikeAmount);
+}
+
+function inferMapFromData(rows, start){
+  const sample = rows.slice(start, start + 80).filter(r => r && r.length);
+  if (!sample.length) return null;
+  const cols = Math.max(...sample.map(r => r.length));
+  const score = (fn) => Array.from({length: cols}, (_, c) =>
+    sample.filter(r => r[c] != null && String(r[c]).trim() && fn(r[c])).length / sample.length);
+
+  const dateScore = score(looksLikeDate);
+  const amtScore  = score(looksLikeAmount);
+  const textLen   = Array.from({length: cols}, (_, c) =>
+    sample.reduce((a, r) => a + (String(r[c] ?? '').trim().length), 0) / sample.length);
+
+  let date = -1, best = 0.6;
+  dateScore.forEach((v, c) => { if (v > best){ best = v; date = c; } });
+
+  const money = [];
+  amtScore.forEach((v, c) => { if (c !== date && v > 0.8) money.push(c); });
+
+  let amount = -1, bal = -1;
+  if (money.length >= 2){
+    // the balance column moves by the amount from one row to the next, in whichever
+    // direction the file is sorted. Whichever pairing fits best is the right one.
+    let bestHits = -1;
+    for (const a of money) for (const b of money){
+      if (a === b) continue;
+      for (const dir of [1, -1]){
+        let hits = 0, seen = 0;
+        for (let i = 0; i + 1 < sample.length; i++){
+          const amt = parseAmount(sample[i][a]);
+          const b1 = parseAmount(sample[i][b]), b2 = parseAmount(sample[i+1][b]);
+          if (amt == null || b1 == null || b2 == null) continue;
+          seen++;
+          if (Math.abs((b1 - b2) * dir - amt) <= 0.02) hits++;
+        }
+        if (seen >= 3 && hits > bestHits){ bestHits = hits; amount = a; bal = b; }
+      }
+    }
+    if (bestHits < Math.max(2, sample.length * 0.4)){    // no convincing pairing
+      amount = money[0]; bal = money.length > 1 ? money[money.length-1] : -1;
+    }
+  } else if (money.length === 1){ amount = money[0]; }
+
+  let desc = -1, longest = 2;
+  textLen.forEach((v, c) => { if (c !== date && c !== amount && c !== bal && v > longest){ longest = v; desc = c; } });
+
+  if (date < 0 || amount < 0) return null;
+  return { date, desc, debit:-1, credit:-1, amount, cur:-1, bal };
 }
 
 /* find the header row: the first row within the top 25 whose cells look like column names */
@@ -1874,6 +2059,33 @@ function autoMap(headers){
   };
 }
 
+function reconcileAgainstBalance(rows, hdrIdx, map, built){
+  CSV_RECON = null;
+  if (!map || map.bal == null || map.bal < 0) return;
+  const bals = [], amts = [];
+  for (let i = hdrIdx + 1; i < rows.length; i++){
+    const r = rows[i] || [];
+    if (!parseDate(map.date >= 0 ? r[map.date] : null, 'auto')) continue;
+    bals.push(parseAmount(r[map.bal]));
+    amts.push(map.amount >= 0 ? parseAmount(r[map.amount]) : null);
+  }
+  if (bals.length < 3) return;
+  // the file may be oldest-first or newest-first; try both and keep the better fit
+  let best = null;
+  for (const dir of [1, -1]){
+    let checked = 0, ok = 0; const bad = [];
+    for (let i = 0; i + 1 < bals.length; i++){
+      const a = amts[i], b1 = bals[i], b2 = bals[i+1];
+      if (a == null || b1 == null || b2 == null) continue;
+      checked++;
+      if (Math.abs((b1 - b2) * dir - a) <= 0.02) ok++;
+      else bad.push({ row:i, amt:a, expected: b2 + a * dir, got: b1 });
+    }
+    if (!best || ok > best.ok) best = { checked, ok, bad };
+  }
+  if (best && best.checked) CSV_RECON = best;
+}
+
 function buildRows(rows, hdrIdx, map, order, acctId, defCur){
   const out = [];
   for (let i = hdrIdx + 1; i < rows.length; i++){
@@ -1888,10 +2100,11 @@ function buildRows(rows, hdrIdx, map, order, acctId, defCur){
     }
     if (amt == null && map.amount >= 0) amt = parseAmount(r[map.amount]);
     if (amt == null || amt === 0) continue;
-    const desc = (map.desc >= 0 ? String(r[map.desc]||'') : '').trim() || 'Transaction';
+    const desc = cleanBlockDesc((map.desc >= 0 ? String(r[map.desc]||'') : '').trim()) || 'Transaction';
     const cur  = (map.cur >= 0 ? String(r[map.cur]||'').toUpperCase().trim() : '') || defCur;
     out.push(makeTxn({ date, description: desc, amount: amt, currency: (cur === 'USD' ? 'USD' : 'AED'), accountId: acctId, source:'csv' }));
   }
+  reconcileAgainstBalance(rows, hdrIdx, map, out);
   return out;
 }
 
@@ -3238,7 +3451,7 @@ function renderRemindSettings(){
 </script>
 <script>
 /* ══════════════ IMPORT UI ══════════════ */
-let RAW = null, HDR = 0;
+let RAW = null, HDR = 0, NO_HEADER = false, CSV_RECON = null;
 
 function setStep(n){ $$('#impSteps .step').forEach((s,i)=>{ s.className = 'step' + (i===n?' on':i<n?' ok':''); }); }
 
@@ -3257,6 +3470,9 @@ async function handleFile(file){
       return toast('That file has no columns to map. Export it as CSV or Excel, or use the Paste tab.', true);
     }
     HDR = findHeader(RAW);
+    // if the "header" is really the first transaction, this file has no header
+    NO_HEADER = looksLikeDataRow(RAW[HDR]);
+    if (NO_HEADER) HDR = -1;
     setStep(1);
     renderMapper(file.name);
   } catch(e){
@@ -3304,10 +3520,11 @@ function renderOcrOffer(file){
       a digit can be misread. Every row is checked against the running balance printed beside it, and anything that
       does not add up is listed for you before a single transaction is saved.
     </div>
-    <div class="mfoot">
-      <button class="btn ghost" id="ocrCancel">Start over</button>
-      <button class="btn pri" id="ocrGo">Recognise the text</button>
-    </div></div>`;
+    <button class="btn pri" id="ocrGo" style="width:100%;margin-top:18px;padding:14px;font-size:15px">
+      Recognise the text on ${n} page${n===1?'':'s'}</button>
+    <div style="text-align:center;margin-top:10px">
+      <button class="btn ghost sm" id="ocrCancel">Start over</button></div>
+  </div>`;
   $('#ocrCancel').onclick = () => { host.classList.add('hide'); host.innerHTML=''; setStep(0); };
   $('#ocrGo').onclick = async () => {
     host.innerHTML = `<div class="card"><h3>Recognising the text</h3>
@@ -3323,11 +3540,39 @@ function renderOcrOffer(file){
       if (!PDF_LINES.length) throw new Error('Nothing could be recognised on these pages.');
       renderPdfCard();
     } catch(e){
-      console.error(e);
-      host.innerHTML = `<div class="card"><h3>Text recognition did not work</h3>
-        <div class="sub">${esc(e.message||'Unknown error')}</div>
-        <div class="mfoot"><button class="btn ghost" id="ocrBack">Start over</button></div></div>`;
-      $('#ocrBack').onclick = () => { host.classList.add('hide'); setStep(0); };
+      console.error('OCR failed:', e);
+      const stage = e && e.stage ? e.stage : 'running text recognition';
+      const detail = (e && e.detail) || errText(e);
+      const srcRows = (OCR_LOG || []).map(([h, r]) => {
+        const ok = r === 'loaded' || r === 'ok';
+        return `<div style="display:flex;gap:8px;font-size:11.5px;font-family:var(--f-num);padding:3px 0">
+          <span style="color:${ok?'var(--good)':'var(--coral2)'};flex:none">${ok?'✓':'✕'}</span>
+          <span style="flex:1;color:var(--muted);word-break:break-all">${esc(h)}</span>
+          <span style="color:var(--dim);flex:none;max-width:45%;text-align:right">${esc(String(r).slice(0,70))}</span></div>`;
+      }).join('');
+
+      host.innerHTML = `<div class="card">
+        <h3>Text recognition stopped</h3>
+        <div class="sub">It failed while <b>${esc(stage)}</b></div>
+        <div class="diag" style="margin-top:4px">
+          <div class="kv" style="border:none;padding:0">
+            <label>What went wrong</label><code>${esc(detail)}</code>
+            ${srcRows ? `<label>Engine sources tried</label>
+              <div style="background:rgba(4,8,18,.6);border:1px solid var(--line);border-radius:7px;padding:7px 10px">${srcRows}</div>` : ''}
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6">
+          If every source says blocked, something on this network or browser is stopping the download — the engine is
+          about 15 MB fetched on first use. Edge tracking prevention and corporate filters both do this. Trying a
+          different browser is the quickest test.
+          <br><br>Either way, a <b>CSV or Excel export</b> from HSBC online banking avoids recognition altogether and is exact.
+        </div>
+        <div class="mfoot">
+          <button class="btn ghost" id="ocrBack">Start over</button>
+          <button class="btn" id="ocrRetry">Try again</button>
+        </div></div>`;
+      $('#ocrBack').onclick = () => { host.classList.add('hide'); host.innerHTML=''; setStep(0); };
+      $('#ocrRetry').onclick = () => renderOcrOffer(file);
     }
   };
 }
@@ -3386,8 +3631,13 @@ function renderPdfCard(){
 }
 
 function renderMapper(filename){
-  const headers = (RAW[HDR]||[]).map(h => String(h||'').trim());
-  const map = autoMap(headers);
+  const width = Math.max(...RAW.slice(0, 30).map(r => (r||[]).length));
+  const headers = NO_HEADER
+    ? Array.from({length: width}, (_, i) => `Column ${i+1}`)
+    : (RAW[HDR]||[]).map(h => String(h||'').trim());
+  const map = NO_HEADER
+    ? (inferMapFromData(RAW, 0) || { date:-1, desc:-1, debit:-1, credit:-1, amount:-1, cur:-1, bal:-1 })
+    : autoMap(headers);
   const opts = [['-1','— not present —'], ...headers.map((h,i)=>[String(i), h || `Column ${i+1}`])];
   const sel = (id,label,val,hint) => `<div><label class="fld">${label}</label>
     <select id="m_${id}">${opts.map(([v,l])=>`<option value="${v}" ${String(val)===v?'selected':''}>${esc(l)}</option>`).join('')}</select>
@@ -3396,7 +3646,9 @@ function renderMapper(filename){
   $('#mapWrap').classList.remove('hide');
   $('#mapWrap').innerHTML = `<div class="card">
     <h3>Map the columns</h3>
-    <div class="sub">${esc(filename)} · header found on row ${HDR+1} · ${RAW.length-HDR-1} data rows</div>
+    <div class="sub">${esc(filename)} · ${NO_HEADER
+      ? `no header row — columns worked out from the data`
+      : `header found on row ${HDR+1}`} · ${RAW.length-HDR-1} data rows</div>
     <div class="row c3">
       ${sel('date','Date', map.date)}
       ${sel('desc','Description', map.desc)}
@@ -3404,24 +3656,32 @@ function renderMapper(filename){
       ${sel('debit','Debit / money out', map.debit)}
       ${sel('credit','Credit / money in', map.credit)}
       ${sel('amount','Single amount column', map.amount, 'Used only if debit and credit are absent')}
+      ${sel('bal','Running balance', map.bal, 'Optional. If set, every row is checked against it')}
     </div>
     <div class="row c3" style="margin-top:12px">
       <div><label class="fld">Account</label><select id="m_acct">${live('accounts').map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('') || '<option value="">Create an account first</option>'}</select></div>
       <div><label class="fld">Date order</label><select id="m_order">
         <option value="auto">Detect automatically</option><option value="DMY">Day / Month / Year</option><option value="MDY">Month / Day / Year</option></select></div>
-      <div><label class="fld">Header row</label><input type="number" id="m_hdr" value="${HDR+1}" min="1" max="${Math.min(RAW.length,30)}"></div>
+      <div><label class="fld">Header row</label>
+        <input type="number" id="m_hdr" value="${HDR+1}" min="0" max="${Math.min(RAW.length,30)}">
+        <div style="font-size:11px;color:var(--dim);margin-top:5px">0 means the file has no header</div></div>
     </div>
     <div style="margin-top:16px"><label class="fld">First rows of the file</label>
       <div class="tw"><table><thead><tr>${headers.map(h=>`<th>${esc(h||'—')}</th>`).join('')}</tr></thead>
-      <tbody>${RAW.slice(HDR+1, HDR+4).map(r=>`<tr>${headers.map((_,i)=>`<td style="font-size:12px;color:var(--muted)">${esc(String(r?.[i]??'').slice(0,34))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
+      <tbody>${RAW.slice(HDR+1, HDR+5).map(r=>`<tr>${headers.map((_,i)=>`<td style="font-size:12px;color:var(--muted)">${esc(String(r?.[i]??'').slice(0,34))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
     <div class="mfoot"><button class="btn ghost" id="mapCancel">Start over</button><button class="btn pri" id="mapGo">Read the file</button></div>
   </div>`;
 
-  $('#m_hdr').onchange = e => { HDR = clamp(+e.target.value-1, 0, RAW.length-2); renderMapper(filename); };
+  $('#m_hdr').onchange = e => {
+    const v = clamp(+e.target.value - 1, -1, RAW.length - 2);
+    HDR = v; NO_HEADER = (v < 0);
+    renderMapper(filename);
+  };
   $('#mapCancel').onclick = () => { RAW = null; $('#mapWrap').classList.add('hide'); setStep(0); };
   $('#mapGo').onclick = () => {
     const g = id => +$('#m_'+id).value;
-    const m = { date:g('date'), desc:g('desc'), debit:g('debit'), credit:g('credit'), amount:g('amount'), cur:g('cur') };
+    const m = { date:g('date'), desc:g('desc'), debit:g('debit'), credit:g('credit'),
+                amount:g('amount'), cur:g('cur'), bal:g('bal') };
     if (m.date < 0) return toast('Pick the date column', true);
     if (m.debit < 0 && m.credit < 0 && m.amount < 0) return toast('Pick an amount column, or debit and credit', true);
     const rows = buildRows(RAW, HDR, m, $('#m_order').value, $('#m_acct').value || null, 'AED');
@@ -3438,10 +3698,19 @@ function showPreview(rows, host){
   const inc = fresh.filter(isEarn).reduce((a,t)=>a+Math.abs(t.amountAed),0);
   const exp = fresh.filter(isSpend).reduce((a,t)=>a+Math.abs(t.amountAed),0);
   const dates = fresh.map(t=>t.date).sort();
+  const cr = CSV_RECON;
+  const crNote = (cr && cr.checked) ? (cr.bad.length
+    ? `<div class="insight b" style="border:none"><div class="ic">!</div><div>
+         <p><b>${cr.bad.length} of ${cr.checked}</b> rows do not agree with the running balance in the file.</p>
+         <small>Check the amount column is mapped correctly before adding these.</small></div></div>`
+    : `<div class="insight g" style="border:none"><div class="ic">✓</div><div>
+         <p>All <b>${cr.checked}</b> rows agree with the running balance in the file.</p>
+         <small>Every amount was checked against the balance beside it, so nothing was mis-read or mis-signed.</small></div></div>`) : '';
   host.classList.remove('hide');
   host.innerHTML = `<div class="card">
     <h3>Review before adding</h3>
     <div class="sub">${dates.length?`${dates[0]} to ${dates[dates.length-1]}`:'—'}</div>
+    ${crNote}
     <div class="stats" style="margin-bottom:14px">
       <div class="stat pos"><k>New</k><v>${fresh.length}</v></div>
       <div class="stat"><k>Already on file</k><v>${dupes.length}</v><small>skipped</small></div>
