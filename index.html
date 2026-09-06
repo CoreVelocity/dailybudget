@@ -839,9 +839,13 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 const APP_BUILT   = '2026-09-06';
 const CHANGELOG = [
+  { v:'1.9.1', d:'2026-09-06', notes:[
+    'Bilingual statement headings are now recognised — "Date التاريخ" and the like',
+    'The date column is worked out from the data when the heading is missed',
+    'The PDF card reports how the file was read, and says which stage failed when nothing is found' ]},
   { v:'1.9.0', d:'2026-09-06', notes:[
     'Reads block-format PDF statements where one transaction spans several lines',
     'Handles dates written without separators, and carries the date forward when a statement omits it',
@@ -1360,6 +1364,7 @@ const BUILTIN = [
   [/LOAN|INSTAL?MENT|EMI\b|MORTGAGE|FINANCE PAYMENT/i,'Loan payment','expense'],
   [/SALARY|PAYROLL|WPS |WAGE/i,'Salary','income'],
   [/DIVIDEND|PROFIT DISTRIB/i,'Dividends','income'],
+  [/INWARD (TT|REMIT|TRANSFER)|TT INWARD|INWARD REMITTANCE/i,'Other income','income'],
   [/INTEREST CREDIT|INTEREST EARNED|PROFIT CREDIT/i,'Interest','income'],
   [/CARD PAYMENT|CREDIT CARD PAYMENT|PAYMENT RECEIVED|PAYMENT - THANK|AUTOPAY/i,'Credit card payment','transfer'],
   [/TRANSFER|TRF |FUND TRANSFER|IPP |OWN ACCOUNT/i,'Transfer','transfer'],
@@ -1504,23 +1509,52 @@ const CELL_NUM = /^[\s(]*[-+]?(?:AED|USD|\$)?\s?\d+(?:[,\s]\d{3})*(?:\.\d{1,2})?
 /* A statement's sign lives in which column a number sits in, not in the text.
    Find the Debit / Credit / Balance headings and remember where they are, so the
    numbers underneath can be signed correctly and the running balance dropped. */
+/* Headings are matched loosely, not exactly. Gulf statements are usually bilingual,
+   so the cell reads "Date التاريخ" or "Withdrawals السحوبات" — an exact match never
+   fires. Strip everything that is not a Latin letter and look for the keyword. */
+const asciiWords = t => String(t).replace(/[^A-Za-z ]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+function headingKind(cell){
+  const t = asciiWords(cell.s);
+  if (!t || t.length > 40) return null;
+  // check balance first: headings like "Balance (DR=Debit)" contain the word debit
+  if (/\bbalance\b/.test(t))                                            return 'balance';
+  if (/\b(withdrawals?|withdrawn|debits?|paid out|money out)\b/.test(t)) return 'debit';
+  if (/\b(deposits?|deposited|credits?|paid in|money in)\b/.test(t))     return 'credit';
+  if (/\b(date)\b/.test(t) && !/\b(details?|description|narrative)\b/.test(t)) return 'date';
+  return null;
+}
+
 function findAmountColumns(rows){
-  for (const r of rows.slice(0, 40)){
+  for (const r of rows){
     const hits = []; let dateCol = null;
     for (const c of r.cells){
-      const t = c.s.trim();
-      if (/^(date|txn date|transaction date|value date|posting date)$/i.test(t)){
-        if (!dateCol) dateCol = { mid: c.x + c.w/2, x: c.x };
-      }
-      else if (/^(debit|debits|withdrawals?|withdrawn|paid out|money out|dr)$/i.test(t))   hits.push({ kind:'debit',   c });
-      else if (/^(credit|credits|deposits?|deposited|paid in|money in|cr)$/i.test(t))      hits.push({ kind:'credit',  c });
-      else if (/^(balance|running balance|closing balance|balance \(dr=debit\))$/i.test(t)) hits.push({ kind:'balance', c });
+      const k = headingKind(c);
+      if (!k) continue;
+      if (k === 'date'){ if (!dateCol) dateCol = { mid: c.x + c.w/2, x: c.x }; }
+      else hits.push({ kind:k, c });
     }
     if (hits.filter(h => h.kind !== 'balance').length >= 2 ||
         (hits.length >= 2 && hits.some(h => h.kind === 'balance')))
       return { y: r.y, dateCol, cols: hits.map(h => ({ kind:h.kind, mid: h.c.x + h.c.w/2 })) };
   }
   return null;
+}
+
+/* If the Date heading was missed, work out where the dates actually are */
+function detectDateColumn(rows, headerY){
+  const buckets = new Map();
+  for (const r of rows){
+    if (headerY != null && r.y >= headerY) continue;
+    for (const c of r.cells){
+      if (!BLOCK_DATE.test(c.s.trim())) continue;
+      const key = Math.round((c.x + c.w/2) / 12) * 12;
+      buckets.set(key, (buckets.get(key) || 0) + 1);
+    }
+  }
+  if (!buckets.size) return null;
+  const [mid, n] = [...buckets.entries()].sort((a, b) => b[1] - a[1])[0];
+  return n >= 2 ? { mid } : null;
 }
 
 /* ── Block statements ──
@@ -1532,8 +1566,10 @@ function findAmountColumns(rows){
 const BLOCK_DATE = /^(\d{1,2}\s*[A-Za-z]{3,9}\s*\d{2,4}|\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|[A-Za-z]{3,9}\s+\d{1,2},?\s*\d{4})$/;
 
 function rowsToBlocks(rows, layout){
-  if (!layout || !layout.dateCol) return null;
-  const dateMid = layout.dateCol.mid;
+  if (!layout) return null;
+  const dateCol = layout.dateCol || detectDateColumn(rows, layout.y);
+  if (!dateCol) return null;
+  const dateMid = dateCol.mid;
   const blocks = [];
   let cur = null;
 
@@ -1547,15 +1583,16 @@ function rowsToBlocks(rows, layout){
 
     if (dateCell){
       if (cur) blocks.push(cur);
-      cur = { date: dateCell.s.trim(), desc: [], amt: null, dated: true };
+      cur = { date: dateCell.s.trim(), desc: [], amt: null, dated: true, firstY: r.y, lastY: r.y };
     }
     else if (cur && cur.amt != null && hasText){
       // the amount closed the previous block; statements omit the date when the
       // next transaction falls on the same day, so carry it forward
       blocks.push(cur);
-      cur = { date: cur.date, desc: [], amt: null, dated: false };
+      cur = { date: cur.date, desc: [], amt: null, dated: false, firstY: r.y, lastY: r.y };
     }
     if (!cur) continue;
+    cur.lastY = r.y;
 
     for (const c of r.cells){
       if (c === dateCell) continue;
@@ -1585,9 +1622,13 @@ function rowsToBlocks(rows, layout){
   const merged = [];
   for (const b of blocks){
     const txt = b.desc.join(' ');
-    if (b.amt == null && !b.dated && merged.length && b.desc.length && !FOOTER.test(txt))
-      merged[merged.length - 1].desc.push(...b.desc);   // a wrapped description line
-    else merged.push(b);                                 // page furniture, or a real block
+    const prev = merged[merged.length - 1];
+    // only a line sitting immediately under the transaction is a wrapped description;
+    // anything further down the page is a footer or a disclaimer
+    const adjacent = prev && b.firstY != null && prev.lastY != null && (prev.lastY - b.firstY) <= 45;
+    if (b.amt == null && !b.dated && prev && b.desc.length && adjacent && !FOOTER.test(txt))
+      prev.desc.push(...b.desc);
+    else merged.push(b);
   }
   merged.forEach(b => { b.text = cleanBlockDesc(b.desc.join(' ')); });
   const out = merged.filter(b => b.amt != null && b.text);
@@ -1671,10 +1712,18 @@ function rowsToLines(rows){
   return out;
 }
 
+let PDF_DIAG = { mode:'', headings:null, dateCol:false, pages:0, blocks:0 };
+
 function itemsToLines(items){
   const rows = itemsToRows(items);
   const layout = findAmountColumns(rows);
-  return rowsToBlocks(rows, layout) || rowsToLines(rows);
+  if (layout && !PDF_DIAG.headings)
+    PDF_DIAG.headings = layout.cols.map(c => c.kind).join(', ');
+  if (layout && (layout.dateCol || detectDateColumn(rows, layout.y))) PDF_DIAG.dateCol = true;
+  const blocks = rowsToBlocks(rows, layout);
+  if (blocks){ PDF_DIAG.mode = 'blocks'; PDF_DIAG.blocks += blocks.length; return blocks; }
+  if (!PDF_DIAG.mode) PDF_DIAG.mode = 'lines';
+  return rowsToLines(rows);
 }
 
 async function pdfToLines(file, onProgress){
@@ -1787,7 +1836,7 @@ function makeTxn(o){
 function parsePasted(text, order, acctId){
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 6);
   const out = [], skipped = [];
-  const DATE_LEAD = /^(\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[-\/\s][A-Za-z]{3,}[-\/\s]\d{2,4}|[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4})/;
+  const DATE_LEAD = /^(\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[-\/\s]?[A-Za-z]{3,9}[-\/\s]?\d{2,4}|[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4})/;
   const AMT = /(\(?-?\+?\s?(?:AED|USD|\$)?\s?\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?\)?(?:\s?(?:CR|DR))?)\s*$/i;
 
   for (const line of lines){
@@ -3135,6 +3184,7 @@ async function handleFile(file){
 /* PDFs skip the column mapper entirely — there are no columns, only text */
 async function handlePdf(file){
   PDF_NAME = file.name;
+  PDF_DIAG = { mode:'', headings:null, dateCol:false, pages:0, blocks:0 };
   setStep(1);
   const host = $('#mapWrap');
   host.classList.remove('hide');
@@ -3155,10 +3205,13 @@ async function handlePdf(file){
 
 function renderPdfCard(){
   const host = $('#mapWrap');
-  const dated = PDF_LINES.filter(l => /\d{1,2}[-\/.][A-Za-z0-9]{2,}[-\/.]\d{2,4}|\d{4}-\d{2}-\d{2}/.test(l)).length;
+  const dated = PDF_LINES.filter(l => /(^|\s)(\d{1,2}\s*[A-Za-z]{3,9}\s*\d{2,4}|\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2})/.test(l)).length;
+  const readAs = PDF_DIAG.mode === 'blocks'
+    ? `read as <b style="color:var(--good)">multi-line blocks</b> · ${PDF_DIAG.blocks} found`
+    : `read <b>line by line</b>${PDF_DIAG.headings ? '' : ' — no deposit or withdrawal headings were located'}`;
   host.innerHTML = `<div class="card">
     <h3>Read from the PDF</h3>
-    <div class="sub">${esc(PDF_NAME)} · ${PDF_LINES.length} lines of text, ${dated} with a date on them</div>
+    <div class="sub">${esc(PDF_NAME)} · ${PDF_LINES.length} lines, ${dated} carrying a date · ${readAs}</div>
     <div class="row c2">
       <div><label class="fld">Account</label><select id="pdfAcct">${live('accounts').map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('') || '<option value="">Create an account first</option>'}</select></div>
       <div><label class="fld">Date order</label><select id="pdfOrder">
@@ -3178,8 +3231,14 @@ function renderPdfCard(){
   $('#pdfGo').onclick = () => {
     const txt = $('#pdfText').value;
     const { rows, skipped } = parsePasted(txt, $('#pdfOrder').value, $('#pdfAcct').value || null);
-    if (!rows.length)
-      return toast('No transactions found. Check the date order, or paste a few rows into the Paste tab to test.', true);
+    if (!rows.length){
+      const why = !dated
+        ? 'No dates were recognised in the text at all. This statement may be an image rather than text, or it uses a date format the reader does not know.'
+        : !PDF_DIAG.headings
+        ? 'Dates were found, but no Deposits/Withdrawals/Balance headings, so no amount could be tied to them. Try the Paste tab with a few rows, or export a CSV.'
+        : 'Dates and columns were both found, but no line paired them up. Try switching the date order above.';
+      return toast(why, true);
+    }
     setStep(2);
     showPreview(rows, host);
     toast(`${rows.length} rows read · ${skipped.length} lines ignored`);
