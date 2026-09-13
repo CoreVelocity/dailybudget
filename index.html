@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Independence">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <meta name="theme-color" content="#F5F7FA" id="metaTheme">
 <script>
 /* runs before the stylesheet paints: no flash of the wrong theme */
@@ -337,6 +339,14 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   font-family:var(--f-body);border:2px solid #fff}
 .railbell{width:100%;height:34px;border-radius:var(--rs)}
 .themebtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.fab{display:none;position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:58;
+  width:56px;height:56px;border-radius:50%;font-size:30px;font-weight:300;line-height:1;
+  background:linear-gradient(135deg,var(--electric),var(--hyper));color:#fff;
+  box-shadow:0 6px 20px rgba(30,63,214,.38);border:none;place-items:center}
+.fab:active{transform:scale(.94)}
+.installbar{display:none;align-items:center;gap:10px;background:rgba(var(--acc-rgb),.09);
+  border:1px solid var(--line2);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px;font-size:13px}
+.installbar b{font-weight:600}
 .mobiletheme{display:none;position:fixed;top:calc(12px + env(safe-area-inset-top));right:62px;z-index:55;
   background:rgba(var(--card-rgb),.95);backdrop-filter:blur(9px);font-size:15px}
 .mobilebell{display:none;position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;z-index:55;
@@ -368,6 +378,8 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   .nav i{font-size:17px;opacity:1}
   .mobilebell{display:grid}
   .mobiletheme{display:grid}
+  .fab{display:grid}
+  main{padding-bottom:118px}
   main{padding:16px 14px 104px;padding-top:calc(16px + env(safe-area-inset-top))}
   .topbar{margin-bottom:18px;padding-right:48px}
   .topbar h1{font-size:26px}
@@ -493,6 +505,11 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
         </div>
       </div>
 
+      <div class="installbar" id="installBar">
+        <span style="flex:1">Add Independence to your home screen and it opens like an app, works without a connection, and gets a shortcut straight to <b>Add a transaction</b>.</span>
+        <button class="btn pri sm" id="installBtn">Install</button>
+        <button class="btn ghost sm" id="installNo">Not now</button>
+      </div>
       <div class="stats" id="ovStats"></div>
 
       <div class="horizon" style="margin-bottom:16px">
@@ -667,6 +684,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
         <div class="tools">
           <button class="btn" id="addAsset">Add asset</button>
           <button class="btn" id="addLiab">Add liability</button>
+          <button class="btn" id="addIncome">Add income</button>
           <button class="btn ghost" id="snapNw">Save snapshot</button>
         </div>
       </div>
@@ -686,6 +704,12 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
             <thead><tr><th>Liability</th><th>Rate</th><th class="n">Balance</th><th></th></tr></thead><tbody></tbody>
           </table></div>
         </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>Income</h3>
+        <div class="sub">What you earn rather than own, and what your assets pay you</div>
+        <div id="incomeList"></div>
+        <div id="incomeMode" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"></div>
       </div>
       <div class="card" style="margin-top:14px" id="payoffCard"></div>
       <div class="card" style="margin-top:14px">
@@ -746,7 +770,8 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>Import a statement.</b> Import → Upload file. A CSV or Excel export is the most reliable route — in HSBC it sits under Transaction History. You'll be shown the columns found in the file and asked which is the date, the description and the amounts, since banks label these differently. Exports with no header row are handled too: the columns are worked out from what they contain. If the file has a running balance column, map it and every row is checked against it. PDFs also work, including ones that are pictures of a statement.</li>
           <li><b>Fix the categories.</b> Ledger → set <i>Uncategorised only</i> to Yes. Tap any category cell to set it, and leave the "apply to everything matching" box ticked. Each one you set writes a rule that files every future import automatically, so this is a shrinking job, not a recurring one.</li>
           <li><b>Log what repeats.</b> Recurring → add salary, rent, school fees, loan instalments, subscriptions. The Recurring page also flags charges that appear every month but aren't logged yet — adopt the real ones.</li>
-          <li><b>Build the balance sheet.</b> Balance sheet → add every asset and liability. Give each asset an expected return, and tick <i>counts toward independence</i> for anything you'd actually draw on. Your home and car usually shouldn't be ticked; a brokerage account should.</li>
+          <li><b>Build the balance sheet.</b> Balance sheet → add every asset and liability. Tick <i>counts toward independence</i> for anything you'd actually draw on — your home and car usually shouldn't be, a brokerage account should. Each asset has two separate numbers: <i>growth kept inside</i> for value it gains on its own, and <i>income it pays you</i> for interest or dividends that leave the asset and arrive as cash. A deposit paying 5% quarterly has a yield of 5 and no growth; an equity fund has growth and no yield.</li>
+          <li><b>Add your income.</b> Balance sheet → Add income. Salary, business drawings, rent — with how often it arrives, how fast it rises, and an end date if it's a contract. By default the plan still uses what your transactions show; switch it to the listed sources when you want to model a raise or an income that hasn't started yet.</li>
           <li><b>Set up the lumpy things.</b> Targets → add a fund for each cost that arrives in a lump: rent cheques, school terms, insurance, visa renewals. This is the step people skip and it's the one that makes the projection trustworthy.</li>
           <li><b>Read the plan.</b> Overview and 5-year plan will now be populated. Save a snapshot on the Balance sheet so the net worth chart has a starting point.</li>
         </ol>
@@ -772,7 +797,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
         <details><summary>Import</summary><p>Three routes in. <b>Upload</b> takes a PDF, CSV or Excel statement — including PDFs that are pictures of a statement, where the words are recognised on your device first. A PDF is read directly — the text is pulled off the pages, the deposit and withdrawal columns are located so each amount gets the right sign, and running balances and reference numbers are discarded. Statements that print one transaction across several lines are handled too: each block starts at a date and takes its amount from wherever it lands, and when the statement omits a repeated date the previous one is carried forward. You see the extracted text as <i>date | description | amount</i> and can correct any line before anything is added. A spreadsheet asks you to map the columns instead. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
         <details><summary>Recurring</summary><p>Fixed commitments that post themselves. Press <i>Post due items</i> and everything outstanding is written to the ledger. These form the fixed base of your plan.</p></details>
         <details><summary>Targets</summary><p>Two halves. <b>Sinking funds</b> for lumpy costs — set the amount and the date and the monthly figure is worked out. <b>Monthly targets</b> put a ceiling on everyday categories; the pale marker on each bar shows where you'd be if the month were spent evenly.</p></details>
-        <details><summary>Balance sheet</summary><p>Assets against liabilities, plus the <b>debt payoff simulator</b>: minimum payments versus avalanche versus snowball, with a slider for extra payment showing months and interest saved. Save a snapshot each month to build the net worth trend.</p></details>
+        <details><summary>Balance sheet</summary><p>Assets against liabilities, the income that funds everything, plus the <b>debt payoff simulator</b>: minimum payments versus avalanche versus snowball, with a slider for extra payment showing months and interest saved. Save a snapshot each month to build the net worth trend.</p></details>
         <details><summary>5-year plan</summary><p>Sixty months projected from your real savings rate and balance sheet, across three scenarios, with dials for extra saving, spending cuts, return assumptions and extra debt payment. The <b>levers</b> panel answers the practical question: trim each top category by a fifth and here is how many months earlier you cross.</p></details>
       </div>
 
@@ -783,7 +808,8 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>The baseline</b> is the average of your last six <i>complete</i> months. The current month is excluded because it's still running and would drag the average down.</li>
           <li><b>Smoothing.</b> A fund marked <i>smoothed</i> removes its category's lumpy real payments from that average and substitutes a steady monthly figure. A single annual rent cheque inside a six-month window otherwise doubles your apparent housing cost.</li>
           <li><b>Steady versus catch-up.</b> Funds show two numbers. Steady is the true ongoing cost (48,000 termly is 12,000 a month). Catch-up is what to set aside now if you're behind. Only the steady figure feeds the plan — being behind shouldn't make your long-term outlook look worse than it is.</li>
-          <li><b>Coverage</b> is invested assets multiplied by your safe withdrawal rate, divided by twelve, against your monthly outgoings. At 4%, a portfolio of 300× your monthly costs covers them indefinitely. Change the rate in Settings if you disagree with 4%.</li>
+          <li><b>Coverage</b> asks what your assets could hand you each month against what you spend. An asset that already pays an income contributes that payment; one that only grows contributes a safe withdrawal at your chosen rate. At 4%, a portfolio of 300× your monthly costs covers them indefinitely.</li>
+          <li><b>A payout is not growth.</b> If an asset pays you interest, that money leaves the asset — the balance stays where it is and the cash turns up in your account. So enter it as a yield, not as growth, or the projection will compound money you have already spent. Interest arrives on the month it is actually due, which is why the cash-flow path is lumpy for a quarterly deposit.</li>
           <li><b>Loan payments</b> categorised as <i>Loan payment</i> are stripped out of projected spending and handled by the liabilities schedule instead, so they're never counted twice. Don't also log them as a recurring expense.</li>
           <li><b>Freed payments roll over.</b> When a debt clears, its monthly payment becomes available to the next one, in both the payoff simulator and the projection.</li>
         </ul>
@@ -844,6 +870,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>Where it lives.</b> One JSON file in your own OneDrive. Changes save a moment after you make them and merge across devices — the most recently edited version of each record wins, and deletions are respected.</li>
           <li><b>Hosting.</b> Wherever you host this page, add that exact URL as a SPA redirect URI on the Azure app registration, and consent to Files.ReadWrite.All. Until then, <i>Work offline on this device</i> runs everything locally.</li>
           <li><b>Reminders</b> appear when you open the app. A single HTML file has no server, so nothing can reach you while it's closed. On a phone, add the page to your home screen and open it once a day.</li>
+          <li><b>Install it on your phone.</b> Open the page in the browser and take the Install prompt on the Overview, or in Safari tap Share then Add to Home Screen. It then opens full-screen with its own icon, works without a connection, and long-pressing the icon gives a shortcut straight to <i>Add a transaction</i>. On a phone the <b>+</b> button in the bottom corner does the same from anywhere in the app.</li>
           <li><b>Light or dark.</b> The switch sits at the foot of the sidebar, or next to the bell on a phone. It follows your system setting the first time and then remembers what you chose. The choice is kept on the device rather than in the synced file, so your phone and laptop can differ.</li>
           <li><b>Backups.</b> Settings → Download backup writes the whole file to disk. Restoring merges rather than overwrites, so nothing is lost.</li>
         </ul>
@@ -892,6 +919,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
   </main>
 </div>
 
+<button class="fab" id="fabAdd" title="Add a transaction">+</button>
 <button class="bell mobilebell" id="bellMob"></button>
 <button class="bell mobiletheme" id="themeMob"></button>
 <div class="sheet hide" id="moreSheet"><div class="sheetin">
@@ -913,9 +941,17 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.15.0';
 const APP_BUILT   = '2026-09-06';
 const CHANGELOG = [
+  { v:'1.15.0', d:'2026-09-06', notes:[
+    'Assets can pay you an income — interest or dividends monthly, quarterly or yearly — separately from growth they keep inside',
+    'Income sources added: salary, business drawings, rent, with growth and an end date, and the plan can run from them instead of the measured average',
+    'Coverage now counts what a yielding asset actually pays rather than a notional withdrawal' ]},
+  { v:'1.14.0', d:'2026-09-06', notes:[
+    'Installs to the home screen and opens like an app, with its own icon and no browser chrome',
+    'Works offline — the app shell is cached, and anything entered syncs when a connection returns',
+    'A + button on every page, and a home-screen shortcut that opens straight into a new transaction' ]},
   { v:'1.13.0', d:'2026-09-06', notes:[
     'Light and dark in one file, with a switch in the sidebar and beside the bell on a phone',
     'Follows your system setting the first time, then remembers your choice on that device',
@@ -1024,14 +1060,14 @@ const Cache = {
 const CACHE_KEY = 'independence:data:v1';
 
 /* ══════════════ state ══════════════ */
-const COLLECTIONS = ['transactions','accounts','assets','liabilities','recurring','rules','snapshots','funds','targets'];
+const COLLECTIONS = ['transactions','accounts','assets','liabilities','recurring','rules','snapshots','funds','targets','incomes'];
 
 function blankData(){
   return {
     version: 1,
     settings: { baseCurrency:'AED', usdAed: 3.6725, swr: 4, inflation: 3, incomeGrowth: 3,
-                surplusToAssetId: null, updatedAt: now() },
-    transactions:[], accounts:[], assets:[], liabilities:[], recurring:[], rules:[], snapshots:[], funds:[], targets:[]
+                surplusToAssetId: null, incomeMode: 'measured', updatedAt: now() },
+    transactions:[], accounts:[], assets:[], liabilities:[], recurring:[], rules:[], snapshots:[], funds:[], targets:[], incomes:[]
   };
 }
 
@@ -2359,15 +2395,52 @@ function baseline(){
            rate: income > 0 ? (income - expense)/income*100 : 0 };
 }
 
+const PAY_EVERY = { none:0, monthly:1, quarterly:3, semiannual:6, annual:12 };
+
+/* Income an asset pays OUT to you, as opposed to growth it keeps inside itself.
+   A deposit paying 5% quarterly does not get larger — the cash arrives in your
+   account — so it must be modelled separately from an asset that compounds. */
+function assetPayoutMonthly(a){
+  const every = PAY_EVERY[a.payFreq] ?? 0;
+  if (!every || !(+a.yield)) return 0;
+  return toBase(+a.value||0, a.currency) * ((+a.yield)/100) / 12;
+}
+const payoutTotalMonthly = () => live('assets').reduce((t,a)=> t + assetPayoutMonthly(a), 0);
+const spendablePayoutMonthly = () => live('assets')
+  .filter(a => a.payTo !== 'reinvest').reduce((t,a)=> t + assetPayoutMonthly(a), 0);
+
+/* Income you earn rather than own: salary, business drawings, rent, a pension.
+   Not an asset, but it is what funds the plan, so it belongs on this page. */
+const INC_EVERY = { monthly:1, quarterly:3, semiannual:6, annual:12, oneoff:0 };
+function incomeMonthly(i, atDate){
+  if (i.active === false) return 0;
+  const d = atDate || iso(new Date());
+  if (i.startDate && d < i.startDate) return 0;
+  if (i.endDate && d > i.endDate) return 0;
+  const per = INC_EVERY[i.frequency] ?? 1;
+  if (!per) return 0;
+  return toBase(Math.abs(+i.amount)||0, i.currency) / per;
+}
+const incomeSourcesMonthly = (d) => live('incomes').reduce((t,i)=> t + incomeMonthly(i, d), 0);
+
 const assetTotal = () => live('assets').reduce((a,x)=> a + toBase(+x.value||0, x.currency), 0);
 const liabTotal  = () => live('liabilities').reduce((a,x)=> a + toBase(+x.balance||0, x.currency), 0);
 const investedTotal = () => live('assets').filter(a=>a.invested).reduce((a,x)=> a + toBase(+x.value||0, x.currency), 0);
 const netWorth = () => assetTotal() - liabTotal();
 
+/* What your assets could reliably hand you each month. An asset that already pays
+   an income contributes that payment; one that only grows contributes a safe
+   withdrawal. Mixing the two is what makes the coverage figure honest. */
+function sustainableMonthly(){
+  const swr = (S().swr/100) / 12;
+  return live('assets').filter(a => a.invested).reduce((t, a) => {
+    const pay = assetPayoutMonthly(a);
+    return t + (pay > 0 && a.payTo !== 'reinvest' ? pay : toBase(+a.value||0, a.currency) * swr);
+  }, 0);
+}
 function coverageNow(){
   const b = baseline();
-  const monthlySafe = investedTotal() * (S().swr/100) / 12;
-  return b.expense > 0 ? monthlySafe / b.expense * 100 : 0;
+  return b.expense > 0 ? sustainableMonthly() / b.expense * 100 : 0;
 }
 
 /* detect probable subscriptions not yet in the recurring list */
@@ -2672,9 +2745,21 @@ function project(opt = {}){
   let assets = live('assets').map(a => ({
     id: a.id, v: toBase(+a.value||0, a.currency),
     r: Math.pow(1 + clamp(((+a.ret||0)/100) + retAdj, -0.5, 0.5), 1/12) - 1,
-    c: toBase(+a.contrib||0, a.currency), invested: !!a.invested
+    c: toBase(+a.contrib||0, a.currency), invested: !!a.invested,
+    y: (+a.yield||0)/100/12,                       // paid out, not compounded
+    every: PAY_EVERY[a.payFreq] ?? 0,
+    reinvest: a.payTo === 'reinvest',
+    accrued: 0
   }));
-  if (!assets.length) assets = [{ id:'_v', v:0, r: Math.pow(1 + clamp(0.06+retAdj,-.5,.5), 1/12)-1, c:0, invested:true }];
+  if (!assets.length) assets = [{ id:'_v', v:0, r: Math.pow(1 + clamp(0.06+retAdj,-.5,.5), 1/12)-1, c:0, invested:true, y:0, every:0, reinvest:false, accrued:0 }];
+
+  // stated income sources, when you choose to plan from them rather than the average
+  const useSources = set.incomeMode === 'sources' && live('incomes').length > 0;
+  const srcs = live('incomes').map(i => ({
+    base: incomeMonthly({ ...i, startDate:null, endDate:null }),
+    g: (+i.growth || 0)/100,
+    start: i.startDate || null, end: i.endDate || null, active: i.active !== false
+  }));
 
   let debts = live('liabilities').map(l => ({
     id: l.id, name: l.name, b: toBase(+l.balance||0, l.currency),
@@ -2715,10 +2800,33 @@ function project(opt = {}){
     const debtLeft = debts.reduce((a,x)=>a+x.b,0);
     if (debtLeft <= 0 && debtFreeIdx < 0) debtFreeIdx = m;
 
-    for (const a of assets){ a.v += a.v * a.r; a.v += a.c; }
+    let payout = 0;
+    for (const a of assets){
+      a.v += a.v * a.r; a.v += a.c;
+      if (a.every && a.y){
+        a.accrued += a.v * a.y;                       // interest builds up…
+        if ((m + 1) % a.every === 0){                 // …and lands on its due month
+          if (a.reinvest) a.v += a.accrued; else payout += a.accrued;
+          a.accrued = 0;
+        }
+      }
+    }
     const contrib = assets.reduce((a,x)=>a+x.c,0);
 
-    let surplus = income - outgo - paid - contrib + extra;
+    // income for this month: either the measured average, or what you have stated
+    let earned = income;
+    if (useSources){
+      const d = iso(addMonths(start, m));
+      const yrs = m / 12;
+      earned = srcs.reduce((t, x) => {
+        if (!x.active) return t;
+        if (x.start && d < x.start) return t;
+        if (x.end && d > x.end) return t;
+        return t + x.base * Math.pow(1 + x.g, yrs);
+      }, 0);
+    }
+
+    let surplus = earned - outgo - paid - contrib + extra + payout;
     totalSaved += Math.max(0, surplus) + contrib;
     if (surplus >= 0) sink.v += surplus;
     else {
@@ -2731,19 +2839,25 @@ function project(opt = {}){
     const A = assets.reduce((a,x)=>a+x.v,0);
     const INV = assets.filter(a=>a.invested).reduce((a,x)=>a+x.v,0);
     const outgoings = outgo + paid;
-    const coverage = outgoings > 0 ? (INV*(set.swr/100)/12) / outgoings * 100 : (INV>0?100:0);
+    // what the assets could hand you each month: actual yield where there is one,
+    // a safe withdrawal where there is not
+    const sustain = assets.filter(a=>a.invested).reduce((t,a)=>
+      t + ((a.y && a.every && !a.reinvest) ? a.v * a.y : a.v * (set.swr/100)/12), 0);
+    const coverage = outgoings > 0 ? sustain / outgoings * 100 : (INV>0?100:0);
     if (coverage >= 100 && crossIdx < 0) crossIdx = m;
 
     months.push({
       key: monthKey(iso(addMonths(start, m))), assets: A, invested: INV,
       debt: debtLeft, net: A - debtLeft, coverage, saved: totalSaved,
-      income, outgo: outgoings, surplus
+      income: earned, payout, outgo: outgoings, surplus
     });
   }
 
   const last = months[59];
+  const payoutYr1 = months.slice(0,12).reduce((t,m)=>t+m.payout,0);
+  const payoutYr5 = months.slice(48).reduce((t,m)=>t+m.payout,0);
   return {
-    months, crossIdx, debtFreeIdx,
+    months, crossIdx, debtFreeIdx, payoutYr1, payoutYr5, usedSources: useSources,
     debtFree: debtFreeIdx >= 0 && liabTotal() > 0,
     debtFreeLabel: liabTotal() <= 0 ? 'Now' : (debtFreeIdx >= 0 ? fullMonth(months[debtFreeIdx].key) : 'Past 2031'),
     endNet: last.net, endAssets: last.assets, endCoverage: last.coverage, totalSaved: last.saved,
@@ -2816,18 +2930,21 @@ function dial(k,label,val,min,max,step,f){
 function renderBalance(){
   const A = assetTotal(), L = liabTotal();
   $('#bsAsOf').textContent = `${live('assets').length} assets, ${live('liabilities').length} liabilities · ${live('snapshots').length} snapshots saved`;
+  const pay = spendablePayoutMonthly(), srcInc = incomeSourcesMonthly();
+  const b0 = baseline();
   $('#bsStats').innerHTML = [
     {k:'Assets', v:fmt(A), c:'pos'}, {k:'Liabilities', v:fmt(L), c:'neg'},
     {k:'Net worth', v:fmt(A-L), c:(A-L)>=0?'pos':'neg'},
-    {k:'Invested', v:fmt(investedTotal()), s:'counts toward independence'},
-    {k:'Debt to assets', v: A>0 ? (L/A*100).toFixed(0)+'%' : '—'}
+    {k:'Assets pay you', v:fmt(pay), s: pay? `${fmt(pay*12)} a year` : 'no asset pays an income', c: pay?'pos':''},
+    {k:'Covered by assets', v: b0.expense? (sustainableMonthly()/b0.expense*100).toFixed(0)+'%' : '—', s:'of your monthly costs'}
   ].map(x=>`<div class="stat ${x.c||''}"><k>${x.k}</k><v>${x.v}</v>${x.s?`<small>${x.s}</small>`:''}</div>`).join('');
 
   $('#assetTable tbody').innerHTML = live('assets').length ? live('assets')
     .sort((a,b)=> toBase(+b.value||0,b.currency) - toBase(+a.value||0,a.currency)).map(a => `<tr data-id="${a.id}">
       <td><div style="font-weight:500">${esc(a.name)}</div>
-        <div style="font-size:11.5px;color:var(--dim)">${esc(a.klass||'Asset')}${a.invested?' · invested':''}${a.liquid?' · liquid':''}${+a.contrib?` · +${fmt(toBase(+a.contrib,a.currency))}/mo`:''}</div></td>
-      <td class="mono" style="font-size:12.5px">${(+a.ret||0).toFixed(1)}%</td>
+        <div style="font-size:11.5px;color:var(--dim)">${esc(a.klass||'Asset')}${a.invested?' · invested':''}${a.liquid?' · liquid':''}${+a.contrib?` · +${fmt(toBase(+a.contrib,a.currency))}/mo`:''}</div>
+        ${assetPayoutMonthly(a) ? `<div style="font-size:11.5px;color:var(--good)">pays ${fmt(assetPayoutMonthly(a)*(PAY_EVERY[a.payFreq]||1))} ${({monthly:'monthly',quarterly:'quarterly',semiannual:'twice a year',annual:'yearly'})[a.payFreq]||''}${a.payTo==='reinvest'?', rolled back in':''} · ${fmt(assetPayoutMonthly(a))}/mo</div>` : ''}</td>
+      <td class="mono" style="font-size:12.5px">${(+a.ret||0).toFixed(1)}%${(+a.yield)?`<div style="color:var(--good);font-size:11.5px">+${(+a.yield).toFixed(1)}% paid</div>`:''}</td>
       <td class="n">${fmt(toBase(+a.value||0,a.currency))}</td>
       <td style="text-align:right"><button class="btn ghost sm" data-act="edit">Edit</button><button class="btn ghost sm" data-act="del" style="color:var(--coral2)">✕</button></td>
     </tr>`).join('') : `<tr><td colspan="4">${emptyBox('Add what you own — cash, brokerage, property, business equity.')}</td></tr>`;
@@ -2841,6 +2958,7 @@ function renderBalance(){
       <td style="text-align:right"><button class="btn ghost sm" data-act="edit">Edit</button><button class="btn ghost sm" data-act="del" style="color:var(--coral2)">✕</button></td>
     </tr>`).join('') : `<tr><td colspan="4">${emptyBox('Nothing owed? Leave this empty.')}</td></tr>`;
 
+  renderIncome();
   renderPayoff();
 
   const list = live('assets').map(a=>({ n:a.name, v:toBase(+a.value||0,a.currency) })).sort((x,y)=>y.v-x.v);
@@ -2848,6 +2966,62 @@ function renderBalance(){
   $('#allocList').innerHTML = list.length ? list.map(x=>`<div class="catrow">
     <div class="nm">${esc(x.n)}</div><div class="vl">${(x.v/tot*100).toFixed(1)}%</div>
     <div class="bar"><i style="width:${x.v/tot*100}%"></i></div></div>`).join('') : emptyBox('No assets recorded.');
+}
+
+function renderIncome(){
+  const host = $('#incomeList'); if (!host) return;
+  const srcs = live('incomes');
+  const payers = live('assets').filter(a => assetPayoutMonthly(a) > 0);
+  const srcTotal = incomeSourcesMonthly();
+  const payTotal = spendablePayoutMonthly();
+
+  const freqWord = { monthly:'monthly', quarterly:'quarterly', semiannual:'twice a year', annual:'yearly' };
+  const rows = srcs.map(i => {
+    const per = incomeMonthly({ ...i, startDate:null, endDate:null });
+    const live_ = incomeMonthly(i) > 0;
+    const note = i.active === false ? 'paused'
+      : (i.endDate && iso(new Date()) > i.endDate) ? 'ended ' + i.endDate
+      : (i.startDate && iso(new Date()) < i.startDate) ? 'starts ' + i.startDate : '';
+    return `<div class="catrow" data-id="${i.id}">
+      <div class="nm">${esc(i.name)} <span class="tag ${live_?'g':'m'}">${esc(i.kind||'Income')}</span>
+        ${note?`<span class="tag m">${esc(note)}</span>`:''}</div>
+      <div class="vl">${fmt(per)}<span style="color:var(--dim);font-size:11px">/mo</span></div>
+      <div class="mt">
+        <span>${fmt(toBase(+i.amount||0,i.currency))} ${freqWord[i.frequency]||''}${+i.growth?` · rising ${(+i.growth).toFixed(1)}% a year`:''}</span>
+        <span><button class="btn ghost sm" data-act="edit">Edit</button>
+              <button class="btn ghost sm" data-act="del" style="color:var(--coral2)">✕</button></span></div>
+    </div>`;
+  }).join('');
+
+  const payRows = payers.map(a => `<div class="catrow">
+      <div class="nm" style="color:var(--muted)">${esc(a.name)} <span class="tag">${a.payTo==='reinvest'?'rolled back in':'paid to you'}</span></div>
+      <div class="vl" style="color:${a.payTo==='reinvest'?'var(--dim)':'var(--good)'}">${fmt(assetPayoutMonthly(a))}<span style="color:var(--dim);font-size:11px">/mo</span></div>
+      <div class="mt"><span>${(+a.yield).toFixed(2)}% a year on ${fmt(toBase(+a.value||0,a.currency))}, paid ${freqWord[a.payFreq]||''}</span>
+      <span>${fmt(assetPayoutMonthly(a)*12)} a year</span></div></div>`).join('');
+
+  host.innerHTML = (rows || payRows)
+    ? (rows || '') + (payRows ? `<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:14px 0 4px">From your assets</div>` + payRows : '')
+    : emptyBox('Add your salary and any other income here. Assets that pay interest or dividends appear underneath once you set a yield on them.');
+
+  const set = S(), mode = set.incomeMode || 'measured';
+  const b = baseline();
+  const total = srcTotal + payTotal;
+  $('#incomeMode').innerHTML = `
+    <label class="fld">The five-year plan should take income from</label>
+    <select id="incMode">
+      <option value="measured" ${mode==='measured'?'selected':''}>What your transactions actually show — ${fmt(b.income)}/mo</option>
+      <option value="sources" ${mode==='sources'?'selected':''}>The sources listed above — ${fmt(srcTotal)}/mo${payTotal?` plus ${fmt(payTotal)} from assets`:''}</option>
+    </select>
+    <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6">
+      ${mode==='sources'
+        ? `The plan uses the sources you have listed, so you can model a raise, a contract ending, or income you have not received yet.
+           ${srcTotal>0 && b.income>0 && Math.abs(srcTotal-b.income)/b.income > 0.2
+             ? `<br><b style="color:var(--warn)">These differ from your measured income by ${(Math.abs(srcTotal-b.income)/b.income*100).toFixed(0)}%.</b> Worth checking you have listed everything, or that nothing is listed twice.`
+             : ''}`
+        : `The plan averages your last six complete months. Listing sources above does not change it — switch to them if you want to model a change in income.`}
+      ${payTotal ? `<br>Income your assets pay out is added on top either way, since it does not appear in the average until it lands.` : ''}
+    </div>`;
+  $('#incMode').onchange = e => { set.incomeMode = e.target.value; set.updatedAt = now(); UI.dirty = true; scheduleSave(); renderAll(); };
 }
 
 /* ══════════════ RECURRING ══════════════ */
@@ -2950,7 +3124,7 @@ function renderSettings(){
 
   $('#dataStats').innerHTML = `${live('transactions').length} transactions · ${live('accounts').length} accounts ·
     ${live('assets').length} assets · ${live('liabilities').length} liabilities · ${live('recurring').length} recurring ·
-    ${live('funds').length} funds · ${live('targets').length} targets · ${live('rules').length} rules<br>
+    ${live('funds').length} funds · ${live('targets').length} targets · ${live('incomes').length} income sources · ${live('rules').length} rules<br>
     Version <b>${esc(APP_VERSION)}</b>, built ${esc(APP_BUILT)}<br>
     Syncing to <b>${CONFIG.syncMode === 'shared' ? esc(CONFIG.sharedUpn) : 'your own OneDrive'}</b> at /${CONFIG.folder}/${CONFIG.fileName}
     ${CONFIG.allowedUser ? `<br>Locked to <b>${esc(CONFIG.allowedUser)}</b>${UI.account?.username ? ` · signed in as ${esc(UI.account.username)}` : ''}` : ''}`;
@@ -3854,7 +4028,8 @@ function editTxn(t){
 
 function editAsset(a){
   const isNew = !a;
-  a = a || { id:uid(), name:'', klass:'Investments', value:0, currency:'AED', ret:6, contrib:0, invested:true, liquid:false };
+  a = a || { id:uid(), name:'', klass:'Investments', value:0, currency:'AED', ret:6, contrib:0,
+             yield:0, payFreq:'none', payTo:'spend', invested:true, liquid:false };
   modal({ title: isNew?'Add asset':'Edit asset',
     fields:[
       { k:'name', label:'Name', v:a.name, ph:'e.g. ADCB savings, Core Velocity equity', half:1 },
@@ -3862,16 +4037,53 @@ function editAsset(a){
         opts:['Cash','Investments','Property','Business equity','Pension / end of service','Vehicle','Other'].map(x=>[x,x]) },
       { k:'value', label:'Current value', type:'number', step:'0.01', v:a.value, half:1 },
       { k:'currency', label:'Currency', type:'select', opts:CUR_OPTS, v:a.currency, half:1 },
-      { k:'ret', label:'Expected return, % a year', type:'number', step:'0.1', v:a.ret, half:1,
-        hint:'Cash 1–4 · equities 6–8 · property 4–6' },
+      { k:'ret', label:'Growth kept inside, % a year', type:'number', step:'0.1', v:a.ret, half:1,
+        hint:'Value the asset gains without paying you · equities 6–8, property 4–6' },
       { k:'contrib', label:'You add each month', type:'number', step:'0.01', v:a.contrib, half:1 },
+      { k:'hr', type:'hr' },
+      { k:'yield', label:'Income it pays you, % a year', type:'number', step:'0.01', v:a.yield||0, half:1,
+        hint:'Interest or dividends paid out to you. Leave at zero if the asset only grows.' },
+      { k:'payFreq', label:'Paid', type:'select', v:a.payFreq||'none', half:1,
+        opts:[['none','Not paid out'],['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Twice a year'],['annual','Yearly']] },
+      { k:'payTo', label:'What happens to it', type:'select', v:a.payTo||'spend',
+        opts:[['spend','Paid to me — it becomes cash I can spend or save'],
+              ['reinvest','Rolled back in — the asset grows by it instead']] },
       { k:'invested', label:'Counts toward independence (safe withdrawals draw on it)', type:'check', v:a.invested },
       { k:'liquid', label:'Liquid — reachable within a week', type:'check', v:a.liquid }
     ],
     onSave(o){
       if (!o.name.trim()){ toast('Give the asset a name', true); return false; }
-      upsert('assets', { ...a, ...o, name:o.name.trim(), value:+o.value||0, ret:+o.ret||0, contrib:+o.contrib||0, deleted:false });
+      upsert('assets', { ...a, ...o, name:o.name.trim(), value:+o.value||0, ret:+o.ret||0,
+                         contrib:+o.contrib||0, yield:+o.yield||0, deleted:false });
       renderAll(); toast(isNew?'Asset added':'Asset updated');
+    }});
+}
+
+function editIncome(i){
+  const isNew = !i;
+  i = i || { id:uid(), name:'', kind:'Salary', amount:0, currency:'AED', frequency:'monthly',
+             growth:0, startDate:'', endDate:'', active:true };
+  modal({ title: isNew?'Add an income source':'Edit income source',
+    sub:'What you earn rather than own — salary, business drawings, rent, a pension.',
+    fields:[
+      { k:'name', label:'Name', v:i.name, ph:'e.g. Salary, consulting retainer', half:1 },
+      { k:'kind', label:'Kind', type:'select', v:i.kind, half:1,
+        opts:['Salary','Business income','Rental income','Pension','Other income'].map(x=>[x,x]) },
+      { k:'amount', label:'Amount each time', type:'number', step:'0.01', v:i.amount, half:1 },
+      { k:'currency', label:'Currency', type:'select', opts:CUR_OPTS, v:i.currency, half:1 },
+      { k:'frequency', label:'How often', type:'select', v:i.frequency, half:1,
+        opts:[['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Twice a year'],['annual','Yearly']] },
+      { k:'growth', label:'Rises by, % a year', type:'number', step:'0.1', v:i.growth, half:1,
+        hint:'Leave at zero for a flat income' },
+      { k:'startDate', label:'Starts', type:'date', v:i.startDate, half:1, hint:'Leave empty if already running' },
+      { k:'endDate', label:'Ends', type:'date', v:i.endDate, half:1, hint:'For a contract with a known end' },
+      { k:'active', label:'Active', type:'check', v:i.active !== false }
+    ],
+    onSave(o){
+      if (!o.name.trim()){ toast('Name the income', true); return false; }
+      if (!(+o.amount > 0)){ toast('Enter an amount', true); return false; }
+      upsert('incomes', { ...i, ...o, name:o.name.trim(), amount:+o.amount||0, growth:+o.growth||0, deleted:false });
+      renderAll(); toast(isNew?'Income added':'Income updated');
     }});
 }
 
@@ -4094,6 +4306,14 @@ function wire(){
   // balance
   $('#addAsset').onclick = () => editAsset(null);
   $('#addLiab').onclick = () => editLiab(null);
+  $('#addIncome').onclick = () => editIncome(null);
+  $('#incomeList').onclick = e => {
+    const btn = e.target.closest('[data-act]'); if (!btn) return;
+    const box = e.target.closest('[data-id]'); if (!box) return;
+    const i = live('incomes').find(x=>x.id===box.dataset.id); if (!i) return;
+    if (btn.dataset.act === 'edit') editIncome(i);
+    else if (confirm('Delete this income source?')) { softDelete('incomes', i.id); renderBalance(); }
+  };
   $('#assetTable').onclick = e => { const btn = e.target.closest('[data-act]'); if (!btn) return;
     const id = e.target.closest('tr').dataset.id, a = live('assets').find(x=>x.id===id); if (!a) return;
     if (btn.dataset.act === 'edit') editAsset(a);
@@ -4139,6 +4359,10 @@ function wire(){
     if (UI.dirty) await syncNow(true);
     if (confirm('Sign out? Anything unsynced is saved first.')) signOut();
   };
+
+  // add a transaction from anywhere on a phone
+  const fab = $('#fabAdd');
+  if (fab) fab.onclick = () => editTxn(null);
 
   // theme
   stampThemeButtons();
@@ -4197,11 +4421,85 @@ async function start(online){
   seedIfEmpty();
   stampVersion();
   wire();
+  wireInstall();
   go(live('transactions').length ? 'overview' : 'guide');
+  handleLaunchIntent();
   maybeRemind();
   setInterval(notifyTick, 30 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) nudgeBadge(); });
   if (online) syncNow(true);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INSTALLING AS AN APP
+   The service worker keeps the shell available offline; the manifest gives the
+   home-screen icon and the shortcuts. Neither can live inside this file — a browser
+   will only register a worker served as its own script — so both sit beside it.
+   ══════════════════════════════════════════════════════════════ */
+let INSTALL_PROMPT = null;
+
+async function registerWorker(){
+  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js', { scope: './' });
+    // a newer build is waiting: take it on the next load rather than mid-session
+    if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      if (!w) return;
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller)
+          toast('An update is ready — reload when convenient');
+      });
+    });
+  } catch(e){ console.warn('Service worker not registered:', e); }
+}
+
+const standalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+function wireInstall(){
+  const bar = $('#installBar');
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); INSTALL_PROMPT = e;
+    if (bar && !standalone() && !localStorage.getItem('independence:install-dismissed'))
+      bar.style.display = 'flex';
+  });
+  if (bar){
+    $('#installBtn').onclick = async () => {
+      if (!INSTALL_PROMPT){
+        // iOS gives no prompt — tell them where the button is instead
+        return toast('In Safari, tap Share then "Add to Home Screen"');
+      }
+      INSTALL_PROMPT.prompt();
+      const { outcome } = await INSTALL_PROMPT.userChoice;
+      INSTALL_PROMPT = null;
+      bar.style.display = 'none';
+      if (outcome === 'accepted') toast('Installed — look for it on your home screen');
+    };
+    $('#installNo').onclick = () => {
+      bar.style.display = 'none';
+      try { localStorage.setItem('independence:install-dismissed','1'); } catch(e){}
+    };
+    // iOS Safari: no event fires, so offer the instructions once
+    const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) && !window.MSStream;
+    if (iOS && !standalone() && !localStorage.getItem('independence:install-dismissed'))
+      bar.style.display = 'flex';
+  }
+}
+
+/* the app can be opened straight into a task from a home-screen shortcut */
+function handleLaunchIntent(){
+  let params;
+  try { params = new URLSearchParams(location.search); } catch(e){ return; }
+  const VIEWS = ['overview','ledger','import','targets','plan','recurring','balance','guide','settings'];
+  const view = params.get('view');
+  if (view && VIEWS.includes(view)) go(view);
+  if (params.get('add') === '1') setTimeout(() => editTxn(null), 250);
+  if (params.toString()){
+    // keep the address bar clean so a refresh does not repeat the action
+    try { history.replaceState(null, '', location.pathname); } catch(e){}
+  }
 }
 
 /* ══════════════ THEME ══════════════
@@ -4310,6 +4608,7 @@ function renderDiag(){
 
 (async () => {
   stampVersion();
+  registerWorker();
   /* If this window IS the sign-in popup, it should finish the handshake and close,
      not present the app. Only if closing fails do we offer a way to carry on here. */
   if (inMsalPopup()){
