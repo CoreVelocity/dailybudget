@@ -729,6 +729,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           </table></div>
         </div>
       </div>
+      <div class="card" style="margin-top:14px" id="personalCard"></div>
       <div class="card" style="margin-top:14px">
         <h3>Income</h3>
         <div class="sub">What you earn rather than own, and what your assets pay you</div>
@@ -845,6 +846,8 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
         <h3>Things that trip people up</h3>
         <ul class="guide">
           <li><b>Moving money isn't spending.</b> Anything between your own accounts should be a <i>Transfer</i>, not an expense, or your spending will look far worse than it is.</li>
+          <li><b>Money you lend and borrow from people.</b> Two halves. The <b>balance</b> goes on the Balance sheet: money owed to you as an asset of kind <i>Money lent to someone</i>, money you owe as a liability of kind <i>Borrowed from someone</i>, named for the person. They then appear together in <i>Between you and other people</i>, with the net position. The <b>movements</b> go in the Ledger under <i>Lent to someone</i>, <i>Repaid to me</i>, <i>Borrowed from someone</i> and <i>Repaying a personal debt</i> — all transfers, so lending 50,000 doesn't appear as a month of wild spending and being repaid doesn't look like a bonus. Update the balance on the Balance sheet as amounts are repaid.</li>
+          <li><b>Don't tick "counts toward independence" on money you have lent.</b> You cannot pay your rent with a repayment that may never arrive. Leave it off and the loan still counts in your net worth without inflating what your assets could cover.</li>
           <li><b>Credit card payments are transfers too.</b> The spending was recorded when you used the card. Categorise the repayment as <i>Credit card payment</i>.</li>
           <li><b>Don't tick "counts toward independence" on your home.</b> You can't spend it without selling it. The same goes for your car and, usually, business equity.</li>
           <li><b>Some PDFs are pictures, not text.</b> HSBC Premier statements are printed this way: the pages carry a bitmap of the statement and no text at all. The reader detects this and offers to recognise the words on your device. It takes about a minute per ten pages and is not perfect, so every row is checked against the running balance printed beside it and anything that fails is listed before you save. A CSV export from online banking is always more reliable when one is available.</li>
@@ -969,9 +972,13 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.18.2';
+const APP_VERSION = '1.19.0';
 const APP_BUILT   = '2026-09-13';
 const CHANGELOG = [
+  { v:'1.19.0', d:'2026-09-13', notes:[
+    'Money lent to and borrowed from people has its own place: categories for the movements, kinds for the balances, and a summary of who owes whom',
+    'Lending and repaying no longer distort spending, income or the savings rate',
+    'A stated category now decides whether a transaction is income, spending or a transfer' ]},
   { v:'1.18.2', d:'2026-09-13', notes:[
     'Costs covered and the horizon now come from the same calculation, so they cannot disagree',
     'The Overview caption says plainly which months the charts use and which the averages use',
@@ -1516,7 +1523,8 @@ const CATS = {
   expense: ['Housing','Groceries','Dining','Transport','Fuel','Utilities','Telecom','Insurance',
             'Health','Education','Childcare','Shopping','Travel','Entertainment','Fitness',
             'Subscriptions','Domestic help','Fees & charges','Loan payment','Tax','Gifts & charity','Other'],
-  transfer:['Transfer','Savings contribution','Investment purchase','Credit card payment']
+  transfer:['Transfer','Savings contribution','Investment purchase','Credit card payment',
+            'Lent to someone','Repaid to me','Borrowed from someone','Repaying a personal debt']
 };
 const ALL_CATS = [...CATS.income, ...CATS.expense, ...CATS.transfer];
 
@@ -2286,7 +2294,8 @@ function makeTxn(o){
     amountAed,
     accountId: o.accountId || null,
     category: o.category ?? guess.category,
-    type: o.type ?? guess.type,
+    // a stated category decides the type — otherwise money borrowed looks like income
+    type: o.type ?? (o.category ? catType(o.category) : guess.type),
     note: o.note || '',
     source: o.source || 'manual',
     updatedAt: now(), deleted: false
@@ -3206,11 +3215,44 @@ function renderBalance(){
   renderIncome();
   renderPayoff();
 
+  renderPersonal();
+
   const list = live('assets').map(a=>({ n:a.name, v:toBase(+a.value||0,a.currency) })).sort((x,y)=>y.v-x.v);
   const tot = list.reduce((a,x)=>a+x.v,0) || 1;
   $('#allocList').innerHTML = list.length ? list.map(x=>`<div class="catrow">
     <div class="nm">${esc(x.n)}</div><div class="vl">${(x.v/tot*100).toFixed(1)}%</div>
     <div class="bar"><i style="width:${x.v/tot*100}%"></i></div></div>`).join('') : emptyBox('No assets recorded.');
+}
+
+/* Money lent and borrowed between people sits on the balance sheet like anything
+   else, but it behaves differently: no interest, no schedule, and repayment depends
+   on goodwill. Worth showing on its own so it is not mistaken for investable wealth. */
+function renderPersonal(){
+  const host = $('#personalCard'); if (!host) return;
+  const lent  = live('assets').filter(a => a.klass === 'Money lent to someone');
+  const owed  = live('liabilities').filter(l => l.klass === 'Borrowed from someone');
+  if (!lent.length && !owed.length){ host.style.display = 'none'; host.innerHTML = ''; return; }
+
+  const lentTot = lent.reduce((t,a)=> t + toBase(+a.value||0, a.currency), 0);
+  const owedTot = owed.reduce((t,l)=> t + toBase(+l.balance||0, l.currency), 0);
+  const counted = lent.filter(a => a.invested).length;
+
+  host.style.display = 'block';
+  host.innerHTML = `<h3>Between you and other people</h3>
+    <div class="sub">Informal lending — no schedule, and repayment rests on goodwill rather than a contract</div>
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat pos"><k>Owed to you</k><v>${fmt(lentTot)}</v><small>${lent.length} ${lent.length===1?'person':'people'}</small></div>
+      <div class="stat neg"><k>You owe</k><v>${fmt(owedTot)}</v><small>${owed.length} ${owed.length===1?'person':'people'}</small></div>
+      <div class="stat ${lentTot-owedTot>=0?'pos':'neg'}"><k>Net</k><v>${fmt(lentTot-owedTot)}</v><small>in your favour or against</small></div>
+    </div>
+    ${[...lent.map(a=>({n:a.name, v:toBase(+a.value||0,a.currency), dir:'to you', note:a.invested?'counting toward independence':''})),
+       ...owed.map(l=>({n:l.name, v:-toBase(+l.balance||0,l.currency), dir:'you owe', note:l.note||''}))]
+      .map(x=>`<div class="catrow"><div class="nm">${esc(x.n)} <span class="tag m">${x.dir}</span></div>
+        <div class="vl" style="color:${x.v>=0?'var(--good)':'var(--coral2)'}">${fmt(Math.abs(x.v))}</div>
+        ${x.note?`<div class="mt"><span>${esc(x.note)}</span></div>`:''}</div>`).join('')}
+    ${counted ? `<div class="insight w" style="border:none;margin-top:10px"><div class="ic">!</div><div>
+      <p><b>${counted}</b> of these is counted toward independence.</p>
+      <small>A loan to a friend cannot be drawn on to pay your bills. Untick <i>counts toward independence</i> unless you genuinely expect it back on a known date.</small></div></div>` : ''}`;
 }
 
 function renderIncome(){
@@ -4280,10 +4322,10 @@ function editAsset(a){
              yield:0, payFreq:'none', payTo:'spend', invested:true, liquid:false };
   modal({ title: isNew?'Add asset':'Edit asset',
     fields:[
-      { k:'name', label:'Name', v:a.name, ph:'e.g. ADCB savings, Core Velocity equity', half:1 },
+      { k:'name', label:'Name', v:a.name, ph:'e.g. ADCB savings, or who owes you', half:1 },
       { k:'klass', label:'Kind', type:'select', v:a.klass, half:1,
         opts:['Cash','Investments','Property','Business equity','Pension / end of service',
-              'Life insurance / savings policy','Vehicle','Other'].map(x=>[x,x]) },
+              'Life insurance / savings policy','Money lent to someone','Vehicle','Other'].map(x=>[x,x]) },
       { k:'value', label:'Current value', type:'number', step:'0.01', v:a.value, half:1 },
       { k:'currency', label:'Currency', type:'select', opts:CUR_OPTS, v:a.currency, half:1 },
       { k:'ret', label:'Growth kept inside, % a year', type:'number', step:'0.1', v:a.ret, half:1,
@@ -4306,7 +4348,8 @@ function editAsset(a){
       { k:'payTo', label:'What happens to it', type:'select', v:a.payTo||'spend',
         opts:[['spend','Paid to me — it becomes cash I can spend or save'],
               ['reinvest','Rolled back in — the asset grows by it instead']] },
-      { k:'invested', label:'Counts toward independence (safe withdrawals draw on it)', type:'check', v:a.invested },
+      { k:'invested', label:'Counts toward independence (safe withdrawals draw on it)', type:'check', v:a.invested,
+        hint:'Leave this off for money lent to someone — you cannot live off a repayment that may not come' },
       { k:'liquid', label:'Liquid — reachable within a week', type:'check', v:a.liquid }
     ],
     onSave(o){
@@ -4347,17 +4390,19 @@ function editIncome(i){
 
 function editLiab(l){
   const isNew = !l;
-  l = l || { id:uid(), name:'', klass:'Loan', balance:0, currency:'AED', rate:5, payment:0 };
+  l = l || { id:uid(), name:'', klass:'Loan', balance:0, currency:'AED', rate:5, payment:0, note:'' };
   modal({ title: isNew?'Add liability':'Edit liability',
     fields:[
-      { k:'name', label:'Name', v:l.name, ph:'e.g. Car finance, Amex balance', half:1 },
+      { k:'name', label:'Name', v:l.name, ph:'e.g. Car finance, or the person you owe', half:1 },
       { k:'klass', label:'Kind', type:'select', v:l.klass, half:1,
-        opts:['Loan','Mortgage','Credit card','Car finance','Business debt','Family loan','Other'].map(x=>[x,x]) },
+        opts:['Loan','Mortgage','Credit card','Car finance','Business debt',
+              'Borrowed from someone','Other'].map(x=>[x,x]) },
       { k:'balance', label:'Balance owed', type:'number', step:'0.01', v:l.balance, half:1 },
       { k:'currency', label:'Currency', type:'select', opts:CUR_OPTS, v:l.currency, half:1 },
       { k:'rate', label:'Interest, % a year', type:'number', step:'0.1', v:l.rate, half:1 },
       { k:'payment', label:'You pay each month', type:'number', step:'0.01', v:l.payment, half:1,
-        hint:'Leave at zero and the balance never clears in the projection' }
+        hint:'Leave at zero and the balance never clears in the projection' },
+      { k:'note', label:'Note', v:l.note||'', ph:'Who it is owed to, and any agreed terms' }
     ],
     onSave(o){
       if (!o.name.trim()){ toast('Give the liability a name', true); return false; }
