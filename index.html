@@ -809,6 +809,8 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>Smoothing.</b> A fund marked <i>smoothed</i> removes its category's lumpy real payments from that average and substitutes a steady monthly figure. A single annual rent cheque inside a six-month window otherwise doubles your apparent housing cost.</li>
           <li><b>Steady versus catch-up.</b> Funds show two numbers. Steady is the true ongoing cost (48,000 termly is 12,000 a month). Catch-up is what to set aside now if you're behind. Only the steady figure feeds the plan — being behind shouldn't make your long-term outlook look worse than it is.</li>
           <li><b>Coverage</b> asks what your assets could hand you each month against what you spend. An asset that already pays an income contributes that payment; one that only grows contributes a safe withdrawal at your chosen rate. At 4%, a portfolio of 300× your monthly costs covers them indefinitely.</li>
+          <li><b>Paying into an asset.</b> A pension or savings policy has a premium going in as well as value building up. Enter the amount per payment and how often, and a last payment date if the policy becomes paid up — contributions then stop on their own and the surplus lifts from that month.</li>
+          <li><b>The premium is probably already in your spending.</b> If you import statements, the premium is in there as an expense, so the tick box <i>already appears in my imported transactions</i> is on by default. Leave it on and the money still builds the asset but is not deducted from your surplus twice. Turn it off only for something you pay outside the accounts you import — otherwise the plan will understate what you keep by the full premium every month.</li>
           <li><b>A payout is not growth.</b> If an asset pays you interest, that money leaves the asset — the balance stays where it is and the cash turns up in your account. So enter it as a yield, not as growth, or the projection will compound money you have already spent. Interest arrives on the month it is actually due, which is why the cash-flow path is lumpy for a quarterly deposit.</li>
           <li><b>Loan payments</b> categorised as <i>Loan payment</i> are stripped out of projected spending and handled by the liabilities schedule instead, so they're never counted twice. Don't also log them as a recurring expense.</li>
           <li><b>Freed payments roll over.</b> When a debt clears, its monthly payment becomes available to the next one, in both the payoff simulator and the projection.</li>
@@ -941,9 +943,13 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.16.0';
 const APP_BUILT   = '2026-09-06';
 const CHANGELOG = [
+  { v:'1.16.0', d:'2026-09-06', notes:[
+    'Assets you pay into — pensions and insurance policies — take a premium, a frequency and a date the payments stop',
+    'A premium already showing in your imported transactions is no longer deducted a second time',
+    'Yearly and quarterly premiums land on the month they are actually due' ]},
   { v:'1.15.0', d:'2026-09-06', notes:[
     'Assets can pay you an income — interest or dividends monthly, quarterly or yearly — separately from growth they keep inside',
     'Income sources added: salary, business drawings, rent, with growth and an end date, and the plan can run from them instead of the measured average',
@@ -2396,6 +2402,28 @@ function baseline(){
 }
 
 const PAY_EVERY = { none:0, monthly:1, quarterly:3, semiannual:6, annual:12 };
+const CONTRIB_EVERY = { monthly:1, quarterly:3, semiannual:6, annual:12 };
+
+/* What you put IN to an asset — a pension or insurance premium. Held as the amount
+   per payment plus how often, so a yearly premium is not pretended to be monthly. */
+function assetContribMonthly(a){
+  const every = CONTRIB_EVERY[a.contribFreq || 'monthly'] || 1;
+  return toBase(+a.contrib||0, a.currency) / every;
+}
+function contribRunning(a, d){
+  if (!(+a.contrib)) return false;
+  const day = d || iso(new Date());
+  if (a.contribFrom && day < a.contribFrom) return false;
+  if (a.contribUntil && day > a.contribUntil) return false;
+  return true;
+}
+/* Premiums that leave your pocket on top of what your statements already show.
+   Anything already sitting in your transactions must not be counted a second time. */
+const committedMonthly = () => live('assets')
+  .filter(a => contribRunning(a) && !a.contribInSpending)
+  .reduce((t,a)=> t + assetContribMonthly(a), 0);
+const contribTotalMonthly = () => live('assets')
+  .filter(a => contribRunning(a)).reduce((t,a)=> t + assetContribMonthly(a), 0);
 
 /* Income an asset pays OUT to you, as opposed to growth it keeps inside itself.
    A deposit paying 5% quarterly does not get larger — the cash arrives in your
@@ -2745,13 +2773,18 @@ function project(opt = {}){
   let assets = live('assets').map(a => ({
     id: a.id, v: toBase(+a.value||0, a.currency),
     r: Math.pow(1 + clamp(((+a.ret||0)/100) + retAdj, -0.5, 0.5), 1/12) - 1,
-    c: toBase(+a.contrib||0, a.currency), invested: !!a.invested,
+    c: toBase(+a.contrib||0, a.currency),
+    cEvery: CONTRIB_EVERY[a.contribFreq || 'monthly'] || 1,
+    cFrom: a.contribFrom || null, cUntil: a.contribUntil || null,
+    cInSpend: !!a.contribInSpending,
+    invested: !!a.invested,
     y: (+a.yield||0)/100/12,                       // paid out, not compounded
     every: PAY_EVERY[a.payFreq] ?? 0,
     reinvest: a.payTo === 'reinvest',
     accrued: 0
   }));
-  if (!assets.length) assets = [{ id:'_v', v:0, r: Math.pow(1 + clamp(0.06+retAdj,-.5,.5), 1/12)-1, c:0, invested:true, y:0, every:0, reinvest:false, accrued:0 }];
+  if (!assets.length) assets = [{ id:'_v', v:0, r: Math.pow(1 + clamp(0.06+retAdj,-.5,.5), 1/12)-1,
+    c:0, cEvery:1, cFrom:null, cUntil:null, cInSpend:false, invested:true, y:0, every:0, reinvest:false, accrued:0 }];
 
   // stated income sources, when you choose to plan from them rather than the average
   const useSources = set.incomeMode === 'sources' && live('incomes').length > 0;
@@ -2800,9 +2833,16 @@ function project(opt = {}){
     const debtLeft = debts.reduce((a,x)=>a+x.b,0);
     if (debtLeft <= 0 && debtFreeIdx < 0) debtFreeIdx = m;
 
-    let payout = 0;
+    let payout = 0, paidIn = 0, fromPocket = 0;
+    const today = iso(addMonths(start, m));
     for (const a of assets){
-      a.v += a.v * a.r; a.v += a.c;
+      a.v += a.v * a.r;
+      // premiums land on the month they are actually due, and stop when the policy does
+      if (a.c && (m + 1) % a.cEvery === 0 &&
+          (!a.cFrom || today >= a.cFrom) && (!a.cUntil || today <= a.cUntil)){
+        a.v += a.c; paidIn += a.c;
+        if (!a.cInSpend) fromPocket += a.c;   // already in your spending? then do not deduct twice
+      }
       if (a.every && a.y){
         a.accrued += a.v * a.y;                       // interest builds up…
         if ((m + 1) % a.every === 0){                 // …and lands on its due month
@@ -2811,7 +2851,7 @@ function project(opt = {}){
         }
       }
     }
-    const contrib = assets.reduce((a,x)=>a+x.c,0);
+    const contrib = fromPocket;
 
     // income for this month: either the measured average, or what you have stated
     let earned = income;
@@ -2827,7 +2867,7 @@ function project(opt = {}){
     }
 
     let surplus = earned - outgo - paid - contrib + extra + payout;
-    totalSaved += Math.max(0, surplus) + contrib;
+    totalSaved += Math.max(0, surplus) + paidIn;
     if (surplus >= 0) sink.v += surplus;
     else {
       let need = -surplus;
@@ -2936,13 +2976,15 @@ function renderBalance(){
     {k:'Assets', v:fmt(A), c:'pos'}, {k:'Liabilities', v:fmt(L), c:'neg'},
     {k:'Net worth', v:fmt(A-L), c:(A-L)>=0?'pos':'neg'},
     {k:'Assets pay you', v:fmt(pay), s: pay? `${fmt(pay*12)} a year` : 'no asset pays an income', c: pay?'pos':''},
+    {k:'You pay in', v:fmt(contribTotalMonthly()), s: committedMonthly()? `${fmt(committedMonthly())} on top of spending` : 'all within your spending'},
     {k:'Covered by assets', v: b0.expense? (sustainableMonthly()/b0.expense*100).toFixed(0)+'%' : '—', s:'of your monthly costs'}
   ].map(x=>`<div class="stat ${x.c||''}"><k>${x.k}</k><v>${x.v}</v>${x.s?`<small>${x.s}</small>`:''}</div>`).join('');
 
   $('#assetTable tbody').innerHTML = live('assets').length ? live('assets')
     .sort((a,b)=> toBase(+b.value||0,b.currency) - toBase(+a.value||0,a.currency)).map(a => `<tr data-id="${a.id}">
       <td><div style="font-weight:500">${esc(a.name)}</div>
-        <div style="font-size:11.5px;color:var(--dim)">${esc(a.klass||'Asset')}${a.invested?' · invested':''}${a.liquid?' · liquid':''}${+a.contrib?` · +${fmt(toBase(+a.contrib,a.currency))}/mo`:''}</div>
+        <div style="font-size:11.5px;color:var(--dim)">${esc(a.klass||'Asset')}${a.invested?' · invested':''}${a.liquid?' · liquid':''}</div>
+        ${+a.contrib ? `<div style="font-size:11.5px;color:var(--sky)">you pay ${fmt(toBase(+a.contrib,a.currency))} ${({monthly:'monthly',quarterly:'quarterly',semiannual:'twice a year',annual:'yearly'})[a.contribFreq||'monthly']}${a.contribUntil?` until ${a.contribUntil}`:''}${a.contribInSpending?'':' · on top of your spending'}${contribRunning(a)?'':' · not running'}</div>` : ''}
         ${assetPayoutMonthly(a) ? `<div style="font-size:11.5px;color:var(--good)">pays ${fmt(assetPayoutMonthly(a)*(PAY_EVERY[a.payFreq]||1))} ${({monthly:'monthly',quarterly:'quarterly',semiannual:'twice a year',annual:'yearly'})[a.payFreq]||''}${a.payTo==='reinvest'?', rolled back in':''} · ${fmt(assetPayoutMonthly(a))}/mo</div>` : ''}</td>
       <td class="mono" style="font-size:12.5px">${(+a.ret||0).toFixed(1)}%${(+a.yield)?`<div style="color:var(--good);font-size:11.5px">+${(+a.yield).toFixed(1)}% paid</div>`:''}</td>
       <td class="n">${fmt(toBase(+a.value||0,a.currency))}</td>
@@ -4029,17 +4071,28 @@ function editTxn(t){
 function editAsset(a){
   const isNew = !a;
   a = a || { id:uid(), name:'', klass:'Investments', value:0, currency:'AED', ret:6, contrib:0,
+             contribFreq:'monthly', contribFrom:'', contribUntil:'', contribInSpending:true,
              yield:0, payFreq:'none', payTo:'spend', invested:true, liquid:false };
   modal({ title: isNew?'Add asset':'Edit asset',
     fields:[
       { k:'name', label:'Name', v:a.name, ph:'e.g. ADCB savings, Core Velocity equity', half:1 },
       { k:'klass', label:'Kind', type:'select', v:a.klass, half:1,
-        opts:['Cash','Investments','Property','Business equity','Pension / end of service','Vehicle','Other'].map(x=>[x,x]) },
+        opts:['Cash','Investments','Property','Business equity','Pension / end of service',
+              'Life insurance / savings policy','Vehicle','Other'].map(x=>[x,x]) },
       { k:'value', label:'Current value', type:'number', step:'0.01', v:a.value, half:1 },
       { k:'currency', label:'Currency', type:'select', opts:CUR_OPTS, v:a.currency, half:1 },
       { k:'ret', label:'Growth kept inside, % a year', type:'number', step:'0.1', v:a.ret, half:1,
         hint:'Value the asset gains without paying you · equities 6–8, property 4–6' },
-      { k:'contrib', label:'You add each month', type:'number', step:'0.01', v:a.contrib, half:1 },
+      { k:'hr2', type:'hr' },
+      { k:'contrib', label:'You pay in each time', type:'number', step:'0.01', v:a.contrib, half:1,
+        hint:'A pension or insurance premium, or a standing investment' },
+      { k:'contribFreq', label:'Paid in', type:'select', v:a.contribFreq||'monthly', half:1,
+        opts:[['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Twice a year'],['annual','Yearly']] },
+      { k:'contribFrom', label:'Payments start', type:'date', v:a.contribFrom||'', half:1, hint:'Leave empty if already paying' },
+      { k:'contribUntil', label:'Last payment', type:'date', v:a.contribUntil||'', half:1,
+        hint:'When the policy is paid up. Leave empty if it continues indefinitely.' },
+      { k:'contribInSpending', label:'This premium already appears in my imported transactions',
+        type:'check', v:a.contribInSpending !== false && !!(+a.contrib) },
       { k:'hr', type:'hr' },
       { k:'yield', label:'Income it pays you, % a year', type:'number', step:'0.01', v:a.yield||0, half:1,
         hint:'Interest or dividends paid out to you. Leave at zero if the asset only grows.' },
