@@ -204,6 +204,8 @@ label.fld{display:block;font-size:11px;letter-spacing:.1em;text-transform:upperc
 .hzbars .b.done{background:linear-gradient(180deg,var(--sky),var(--hz-c))}
 .hzbars .b.cross{background:linear-gradient(180deg,var(--hyper),var(--electric));box-shadow:0 0 14px var(--hz-glow)}
 .hz-100{position:absolute;left:0;right:0;border-top:1px dashed rgba(var(--acc-rgb),.5);font-size:10px;color:var(--sky);pointer-events:none}
+.hz-100 span{position:absolute;right:0;top:-17px;letter-spacing:.06em;font-weight:600;font-size:9.5px;
+  background:var(--card);padding:2px 7px;border-radius:5px;border:1px solid var(--line);white-space:nowrap}
 .hz-axis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);margin-top:9px;font-family:var(--f-num)}
 
 /* ---------- tables ---------- */
@@ -537,7 +539,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
         <div class="hz-head">
           <div>
             <h3>Independence horizon</h3>
-            <div class="sub">Each bar is one month. Height is the share of your living costs covered by safe withdrawals from invested assets, projected at your current savings rate.</div>
+            <div class="sub">Each bar is one month. Height is the share of your living costs your assets could cover without you working — actual interest or dividends where an asset pays them, a safe withdrawal where it only grows. Projected at your current savings rate.</div>
           </div>
           <div class="hz-date"><v id="hzDate">—</v><k id="hzLabel">Projected crossing</k></div>
         </div>
@@ -967,9 +969,13 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.18.1';
 const APP_BUILT   = '2026-09-13';
 const CHANGELOG = [
+  { v:'1.18.1', d:'2026-09-13', notes:[
+    'The independence horizon keeps the 100% line visible instead of burying it when coverage is already high',
+    'Says "Already there" and how many times over your costs are covered, rather than naming this month as a crossing date',
+    'Its description now matches what coverage actually measures' ]},
   { v:'1.18.0', d:'2026-09-13', notes:[
     'Tick several rows in the ledger and delete them in one go, with shift-click for a range',
     'The header checkbox selects everything matching the current filters',
@@ -2771,14 +2777,29 @@ function renderOverview(){
 
 function renderHorizon(p){
   const bars = p.months.slice(0, 60);
-  const maxv = Math.max(110, ...bars.map(m => m.coverage));
+  const already = p.crossIdx === 0;                 // covered from the very first month
+  const peak = Math.max(...bars.map(m => m.coverage), 0);
+
+  /* Keep the 100% line somewhere useful. When coverage runs to several hundred per
+     cent the line otherwise sits on the floor, which is what made this unreadable:
+     the bars soared and the only reference point was buried under them. */
+  const maxv = Math.max(110, Math.min(peak * 1.08, already ? peak * 1.08 : 400));
+  const linePos = clamp(100 / maxv * 100 * (112/120), 4, 92);
+
   $('#hzBars').innerHTML = bars.map((m,i) => {
     const h = clamp(m.coverage / maxv * 100, 1.5, 100);
-    const cls = m.coverage >= 100 ? (i === p.crossIdx ? 'cross' : 'done') : '';
-    return `<div class="b ${cls}" style="height:${h}%" title="${fullMonth(m.key)} — ${m.coverage.toFixed(0)}% covered"></div>`;
-  }).join('') + `<div class="hz-100" style="bottom:${(100/maxv*100*(112/120)).toFixed(1)}%"><span>100% COVERED</span></div>`;
-  $('#hzDate').textContent = p.crossIdx >= 0 ? fullMonth(bars[p.crossIdx].key) : 'Beyond 2031';
-  $('#hzLabel').textContent = p.crossIdx >= 0 ? 'Costs fully covered' : `${(bars[bars.length-1]?.coverage||0).toFixed(0)}% covered by year 5`;
+    const cls = m.coverage >= 100 ? (i === p.crossIdx && !already ? 'cross' : 'done') : '';
+    return `<div class="b ${cls}" style="height:${h}%" title="${fullMonth(m.key)} — ${m.coverage.toFixed(0)}% of your costs covered"></div>`;
+  }).join('') + `<div class="hz-100" style="bottom:${linePos.toFixed(1)}%"><span>100% — costs covered</span></div>`;
+
+  if (already){
+    const mult = bars[0].coverage / 100;
+    $('#hzDate').textContent = 'Already there';
+    $('#hzLabel').textContent = `Assets cover ${mult >= 10 ? Math.round(mult) : mult.toFixed(1)}× your monthly costs today`;
+  } else {
+    $('#hzDate').textContent = p.crossIdx >= 0 ? fullMonth(bars[p.crossIdx].key) : 'Beyond 2031';
+    $('#hzLabel').textContent = p.crossIdx >= 0 ? 'Costs fully covered' : `${(bars[bars.length-1]?.coverage||0).toFixed(0)}% covered by year 5`;
+  }
   $('#hzA').textContent = bars.length ? fullMonth(bars[0].key) : '';
   $('#hzB').textContent = bars.length > 30 ? fullMonth(bars[29].key) : '';
   $('#hzC').textContent = bars.length ? fullMonth(bars[bars.length-1].key) : '';
