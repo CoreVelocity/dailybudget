@@ -218,6 +218,15 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .tag.x{background:rgba(var(--bad-rgb),.10);color:var(--coral2);border-color:rgba(var(--bad-rgb),.28)}
 .tag.g{background:rgba(var(--good-rgb),.10);color:var(--good);border-color:rgba(var(--good-rgb),.26)}
 .tag.m{background:rgba(var(--mut-rgb),.09);color:var(--muted);border-color:rgba(var(--mut-rgb),.20)}
+.pick{width:34px}
+td.pick{padding-left:13px;padding-right:0}
+input[type=checkbox].rowpick,#selAll{width:17px;height:17px;accent-color:var(--sky);cursor:pointer;margin:0}
+tr.picked{background:rgba(var(--acc-rgb),.09)!important}
+.selbar{display:none;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:11px 14px;
+  border:1px solid var(--sky);border-radius:var(--rs);background:rgba(var(--acc-rgb),.09);font-size:13.5px}
+.selbar b{font-weight:600}
+.selbar .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:700px){ .selbar .acts{margin-left:0;width:100%} }
 .cat-cell{background:none;border:1px dashed transparent;border-radius:6px;padding:3px 7px;font-size:12px;color:var(--muted);width:100%;text-align:left}
 .cat-cell:hover{border-color:var(--line2);color:var(--pearl)}
 
@@ -344,6 +353,15 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   background:linear-gradient(135deg,var(--electric),var(--hyper));color:#fff;
   box-shadow:0 6px 20px rgba(30,63,214,.38);border:none;place-items:center}
 .fab:active{transform:scale(.94)}
+.freshness{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;padding:11px 14px;
+  border:1px solid var(--line);border-radius:var(--rs);background:var(--card);font-size:13px;box-shadow:var(--card-edge)}
+.freshness .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--good)}
+.freshness.warn .dot{background:var(--warn)} .freshness.stale .dot{background:var(--coral)}
+.freshness b{font-weight:600}
+.freshness .thru{font-family:var(--f-num);letter-spacing:-.02em}
+.freshness .gap{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.freshness .sub{color:var(--dim);font-size:12px;margin:0}
+@media(max-width:700px){ .freshness .gap{margin-left:0;width:100%} }
 .installbar{display:none;align-items:center;gap:10px;background:rgba(var(--acc-rgb),.09);
   border:1px solid var(--line2);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px;font-size:13px}
 .installbar b{font-weight:600}
@@ -419,10 +437,12 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   table.mc td.blank{display:none}
   table.mc td[colspan]{grid-column:1/-1;text-align:center}
   table.mc tr:has(td[colspan]){display:block;background:none;border:none;padding:0}
-  /* ledger: desc | amount / date | account / category | actions */
-  #ledTable.mc td:nth-child(2){grid-area:1/1} #ledTable.mc td:nth-child(5){grid-area:1/2;text-align:right;font-size:15px}
-  #ledTable.mc td:nth-child(1){grid-area:2/1} #ledTable.mc td:nth-child(4){grid-area:2/2;text-align:right}
-  #ledTable.mc td:nth-child(3){grid-area:3/1;margin-top:4px} #ledTable.mc td:nth-child(6){grid-area:3/2;text-align:right;margin-top:4px}
+  /* ledger: [pick] desc | amount / date | account / category | actions */
+  #ledTable.mc tr{grid-template-columns:auto minmax(0,1fr) auto}
+  #ledTable.mc td:nth-child(1){grid-area:1/1/4/2;align-self:start;padding-top:2px}
+  #ledTable.mc td:nth-child(3){grid-area:1/2} #ledTable.mc td:nth-child(6){grid-area:1/3;text-align:right;font-size:15px}
+  #ledTable.mc td:nth-child(2){grid-area:2/2} #ledTable.mc td:nth-child(5){grid-area:2/3;text-align:right}
+  #ledTable.mc td:nth-child(4){grid-area:3/2;margin-top:4px} #ledTable.mc td:nth-child(7){grid-area:3/3;text-align:right;margin-top:4px}
   /* recurring: desc | amount / category | frequency / next | actions */
   #recTable.mc td:nth-child(1){grid-area:1/1} #recTable.mc td:nth-child(5){grid-area:1/2;text-align:right;font-size:15px}
   #recTable.mc td:nth-child(2){grid-area:2/1} #recTable.mc td:nth-child(3){grid-area:2/2;text-align:right}
@@ -486,6 +506,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
   </aside>
 
   <main>
+    <div class="freshness" id="freshBar"></div>
     <!-- ═══════════ OVERVIEW ═══════════ -->
     <section class="view" id="v-overview">
       <div class="topbar">
@@ -576,9 +597,10 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
         <div><label class="fld">Uncategorised only</label><select id="fUncat"><option value="">No</option><option value="1">Yes</option></select></div>
         <div style="display:flex;align-items:flex-end"><button class="btn ghost" id="clearF" style="width:100%">Clear filters</button></div>
       </div>
+      <div class="selbar" id="selBar"></div>
       <div id="ledSum" class="stats"></div>
       <div class="tw"><table class="mc" id="ledTable">
-        <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Account</th><th class="n">Amount</th><th></th></tr></thead>
+        <thead><tr><th class="pick"><input type="checkbox" id="selAll" title="Select everything matching these filters"></th><th>Date</th><th>Description</th><th>Category</th><th>Account</th><th class="n">Amount</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
       <div style="display:flex;justify-content:center;gap:10px;margin-top:16px">
@@ -590,7 +612,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
     <section class="view hide" id="v-import">
       <div class="topbar">
         <div><div class="eyebrow">Get the data in</div><h1>Import</h1>
-        <p>Upload a bank export, paste rows straight from a statement, or key one in. Duplicates are matched on date, amount and description, so re-importing an overlapping file is safe.</p></div>
+        <p id="importHint">Upload a bank export, paste rows straight from a statement, or key one in. Duplicates are matched on date, amount and description, so re-importing an overlapping file is safe.</p></div>
       </div>
       <div class="seg" id="impTab" style="margin-bottom:18px">
         <button data-t="file" class="on">Upload file</button>
@@ -793,7 +815,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
       <div class="card" style="margin-bottom:14px">
         <h3>What each page is for</h3>
         <details><summary>Overview</summary><p>Your standing right now. The <b>independence horizon</b> is the strip of sixty bars — one per month — showing what share of your living costs safe withdrawals from invested assets would cover. Where it crosses 100% is the date the money covers you. Below it, the insight panel reads your actual transactions and reports what it finds rather than offering generic advice.</p></details>
-        <details><summary>Ledger</summary><p>Every transaction, filterable by text, category, account, type and date. Export the filtered view as CSV any time. Tapping a category cell is the fastest way to teach the app your merchants.</p></details>
+        <details><summary>Ledger</summary><p>Every transaction, filterable by text, category, account, type and date. Export the filtered view as CSV any time. Tapping a category cell is the fastest way to teach the app your merchants. Tick the boxes on the left to work on several at once — shift-click picks a range, and the box in the header takes everything matching the filters, so you can filter to a bad import and remove it in one action. The selection follows your filters: narrow them and anything no longer shown drops out of the selection rather than being quietly deleted later.</p></details>
         <details><summary>Import</summary><p>Three routes in. <b>Upload</b> takes a PDF, CSV or Excel statement — including PDFs that are pictures of a statement, where the words are recognised on your device first. A PDF is read directly — the text is pulled off the pages, the deposit and withdrawal columns are located so each amount gets the right sign, and running balances and reference numbers are discarded. Statements that print one transaction across several lines are handled too: each block starts at a date and takes its amount from wherever it lands, and when the statement omits a repeated date the previous one is carried forward. You see the extracted text as <i>date | description | amount</i> and can correct any line before anything is added. A spreadsheet asks you to map the columns instead. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
         <details><summary>Recurring</summary><p>Fixed commitments that post themselves. Press <i>Post due items</i> and everything outstanding is written to the ledger. These form the fixed base of your plan.</p></details>
         <details><summary>Targets</summary><p>Two halves. <b>Sinking funds</b> for lumpy costs — set the amount and the date and the monthly figure is worked out. <b>Monthly targets</b> put a ceiling on everyday categories; the pale marker on each bar shows where you'd be if the month were spent evenly.</p></details>
@@ -872,6 +894,8 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>Where it lives.</b> One JSON file in your own OneDrive. Changes save a moment after you make them and merge across devices — the most recently edited version of each record wins, and deletions are respected.</li>
           <li><b>Hosting.</b> Wherever you host this page, add that exact URL as a SPA redirect URI on the Azure app registration, and consent to Files.ReadWrite.All. Until then, <i>Work offline on this device</i> runs everything locally.</li>
           <li><b>Reminders</b> appear when you open the app. A single HTML file has no server, so nothing can reach you while it's closed. On a phone, add the page to your home screen and open it once a day.</li>
+          <li><b>Removing a bad import.</b> Filter the Ledger to the period or account you want gone, tick the header box to take everything matching, and delete. You are told the count, the date range and the net amount before anything happens. Deleted rows are tombstoned rather than erased, so the deletion syncs to your other devices instead of the rows reappearing from a stale copy.</li>
+          <li><b>Knowing where the gap is.</b> The strip at the top of every page shows the date your ledger runs through and how many days behind that is, alongside when you last added anything and where it came from. It turns amber after three days and red after ten. The Import page names the exact date to export from, so you pick up precisely where you left off — and overlapping an earlier period costs nothing, since duplicates are matched and skipped.</li>
           <li><b>Install it on your phone.</b> Open the page in the browser and take the Install prompt on the Overview, or in Safari tap Share then Add to Home Screen. It then opens full-screen with its own icon, works without a connection, and long-pressing the icon gives a shortcut straight to <i>Add a transaction</i>. On a phone the <b>+</b> button in the bottom corner does the same from anywhere in the app.</li>
           <li><b>Light or dark.</b> The switch sits at the foot of the sidebar, or next to the bell on a phone. It follows your system setting the first time and then remembers what you chose. The choice is kept on the device rather than in the synced file, so your phone and laptop can differ.</li>
           <li><b>Backups.</b> Settings → Download backup writes the whole file to disk. Restoring merges rather than overwrites, so nothing is lost.</li>
@@ -943,9 +967,17 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.16.0';
-const APP_BUILT   = '2026-09-06';
+const APP_VERSION = '1.18.0';
+const APP_BUILT   = '2026-09-13';
 const CHANGELOG = [
+  { v:'1.18.0', d:'2026-09-13', notes:[
+    'Tick several rows in the ledger and delete them in one go, with shift-click for a range',
+    'The header checkbox selects everything matching the current filters',
+    'The same selection can be filed under one category, which makes clearing a backlog quick' ]},
+  { v:'1.17.0', d:'2026-09-13', notes:[
+    'A line at the top of every page showing how far the ledger runs and how far behind that is',
+    'Records when you last added anything, how many entries and where they came from',
+    'The Import page now tells you the exact date to export from so nothing is missed' ]},
   { v:'1.16.0', d:'2026-09-06', notes:[
     'Assets you pay into — pensions and insurance policies — take a premium, a frequency and a date the payments stop',
     'A premium already showing in your imported transactions is no longer deducted a second time',
@@ -1080,7 +1112,7 @@ function blankData(){
 let DATA = blankData();
 let UI = {
   view:'overview', months:6, cur:'AED', rows:60,
-  scenario:'base', dials:{ extraSave:0, retAdj:0, cutPct:0, debtExtra:0 }, payoffExtra:0,
+  scenario:'base', dials:{ extraSave:0, retAdj:0, cutPct:0, debtExtra:0 }, payoffExtra:0, sel:new Set(),
   impTab:'file', staged:null, dirty:false, online:false, account:null
 };
 
@@ -2322,8 +2354,45 @@ function dedupe(candidates){
   return { fresh, dupes };
 }
 
+/* How current is the ledger? Two different questions, and both matter:
+   how far the data runs, and when you last sat down and added any. */
+const SOURCE_WORD = { csv:'a spreadsheet', pdf:'a PDF statement', paste:'pasted rows',
+                      manual:'manual entry', recurring:'recurring items', fund:'a fund payment' };
+
+function markEntry(source, count){
+  const s = S();
+  s.lastEntry = { at: now(), count: count || 1, source: source || 'manual' };
+  s.updatedAt = now(); UI.dirty = true; scheduleSave();
+}
+
+function ledgerThrough(){
+  const ds = live('transactions').map(t => t.date).sort();
+  return ds.length ? ds[ds.length - 1] : null;
+}
+function ledgerGapDays(){
+  const last = ledgerThrough();
+  return last ? daysBetween(last, iso(new Date())) : null;
+}
+const nextImportFrom = () => {
+  const last = ledgerThrough();
+  if (!last) return null;
+  const d = new Date(last); d.setDate(d.getDate() + 1);
+  return iso(d);                                  // the day after your last entry
+};
+function lastEntryText(){
+  const e = S().lastEntry;
+  if (!e || !e.at) return null;
+  const d = new Date(e.at);
+  const days = daysBetween(e.at, now());
+  const when = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+  return { when, time: d.toLocaleString([], { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }),
+           count: e.count, source: SOURCE_WORD[e.source] || e.source, days };
+}
+
 function commitImport(rows){
   rows.forEach(r => DATA.transactions.push(r));
+  const src = rows.length ? rows[0].source : 'csv';
+  markEntry(src, rows.length);
   UI.dirty = true; scheduleSave();
   toast(`${rows.length} transaction${rows.length===1?'':'s'} added`);
   UI.staged = null;
@@ -2628,6 +2697,36 @@ function legend(series){
 const emptyBox = m => `<div class="empty" style="padding:34px 10px"><p style="margin:0">${esc(m)}</p></div>`;
 
 /* ══════════════ OVERVIEW ══════════════ */
+/* A line at the top of every page answering: where does my data stop, and when did
+   I last touch it? Without it you only find the gap by scrolling the ledger. */
+function renderFreshness(){
+  const host = $('#freshBar'); if (!host) return;
+  const through = ledgerThrough();
+  const n = live('transactions').length;
+
+  if (!n){
+    host.className = 'freshness warn';
+    host.innerHTML = `<span class="dot"></span><span>Nothing in the ledger yet.</span>
+      <span class="gap"><button class="btn pri sm" data-go="import">Import a statement</button></span>`;
+  } else {
+    const gap = ledgerGapDays();
+    const e = lastEntryText();
+    const state = gap <= 3 ? '' : gap <= 10 ? 'warn' : 'stale';
+    const nice = new Date(through).toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' });
+    const gapWord = gap === 0 ? 'up to today' : gap === 1 ? 'one day behind' : `${gap} days behind`;
+    host.className = 'freshness ' + state;
+    host.innerHTML = `
+      <span class="dot"></span>
+      <span>Ledger runs through <b class="thru">${esc(nice)}</b> — ${esc(gapWord)}.</span>
+      ${e ? `<span class="sub">Last added ${esc(e.when)} · ${e.count} ${e.count===1?'entry':'entries'} from ${esc(e.source)}</span>` : ''}
+      <span class="gap">
+        ${gap > 0 ? `<span class="sub">Next import should start <b class="thru">${esc(nextImportFrom())}</b></span>` : ''}
+        <button class="btn sm" data-go="import">${gap > 0 ? 'Fill the gap' : 'Import'}</button>
+      </span>`;
+  }
+  host.onclick = ev => { const b = ev.target.closest('[data-go]'); if (b) go(b.dataset.go); };
+}
+
 function renderOverview(){
   const b = baseline(), s = monthlySeries(UI.months);
   const nw = netWorth(), cov = coverageNow();
@@ -2719,7 +2818,8 @@ function renderLedger(){
   const page = rows.slice(0, UI.rows);
   tb.innerHTML = page.length ? page.map(t => {
     const v = t.amountAed ?? toBase(t.amount, t.currency);
-    return `<tr data-id="${t.id}">
+    return `<tr data-id="${t.id}" class="${UI.sel.has(t.id)?'picked':''}">
+      <td class="pick"><input type="checkbox" class="rowpick" data-id="${t.id}" ${UI.sel.has(t.id)?'checked':''}></td>
       <td class="mono" style="font-size:12.5px;color:var(--muted)">${t.date.slice(5)}<span style="color:var(--dim)">/${t.date.slice(2,4)}</span></td>
       <td><div style="font-weight:500">${esc(t.description)}</div>${t.note?`<small style="color:var(--dim);font-size:11.5px">${esc(t.note)}</small>`:''}</td>
       <td><button class="cat-cell" data-act="cat">${t.category ? esc(t.category) : '<span style="color:var(--warn)">set category</span>'}</button></td>
@@ -2729,8 +2829,77 @@ function renderLedger(){
         <button class="btn ghost sm" data-act="edit">Edit</button>
         <button class="btn ghost sm" data-act="del" style="color:var(--coral2)">✕</button>
       </td></tr>`;
-  }).join('') : `<tr><td colspan="6">${emptyBox('Nothing matches these filters.')}</td></tr>`;
+  }).join('') : `<tr><td colspan="7">${emptyBox('Nothing matches these filters.')}</td></tr>`;
   $('#moreRows').classList.toggle('hide', rows.length <= UI.rows);
+  renderSelection(rows);
+}
+
+/* The selection follows what is on screen: filters change, stale picks drop away. */
+function renderSelection(rows){
+  const ids = new Set(rows.map(t => t.id));
+  for (const id of [...UI.sel]) if (!ids.has(id)) UI.sel.delete(id);
+
+  const bar = $('#selBar');
+  const all = $('#selAll');
+  if (all){
+    all.checked = rows.length > 0 && UI.sel.size === rows.length;
+    all.indeterminate = UI.sel.size > 0 && UI.sel.size < rows.length;
+  }
+  if (!bar) return;
+
+  if (!UI.sel.size){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+
+  const picked = live('transactions').filter(t => UI.sel.has(t.id));
+  const sum = picked.reduce((a,t) => a + (t.amountAed ?? toBase(t.amount, t.currency)), 0);
+  const dates = picked.map(t=>t.date).sort();
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <span><b>${UI.sel.size}</b> selected · net ${fmt(sum)}${dates.length>1?` · ${dates[0]} to ${dates[dates.length-1]}`:''}</span>
+    <span class="acts">
+      <button class="btn sm" id="selCat">Set category</button>
+      <button class="btn sm danger" id="selDel">Delete ${UI.sel.size}</button>
+      <button class="btn ghost sm" id="selClear">Clear</button>
+    </span>`;
+
+  $('#selClear').onclick = () => { UI.sel.clear(); renderLedger(); };
+  $('#selCat').onclick = () => bulkCategorise([...UI.sel]);
+  $('#selDel').onclick = () => bulkDelete([...UI.sel]);
+}
+
+function bulkDelete(ids){
+  const picked = live('transactions').filter(t => ids.includes(t.id));
+  if (!picked.length) return;
+  const sum = picked.reduce((a,t)=> a + (t.amountAed ?? toBase(t.amount, t.currency)), 0);
+  const dates = picked.map(t=>t.date).sort();
+  const sample = picked.slice(0,3).map(t=>`· ${t.date}  ${t.description.slice(0,34)}  ${fmt(t.amountAed)}`).join('\n');
+  const msg = `Delete ${picked.length} transaction${picked.length===1?'':'s'}?\n\n`
+    + `${dates[0]} to ${dates[dates.length-1]}, net ${fmt(sum)}\n\n${sample}`
+    + (picked.length>3?`\n· and ${picked.length-3} more`:'')
+    + `\n\nThis cannot be undone from here, though a backup would still hold them.`;
+  if (!confirm(msg)) return;
+  ids.forEach(id => softDelete('transactions', id));
+  UI.sel.clear();
+  toast(`${picked.length} transaction${picked.length===1?'':'s'} deleted`);
+  renderAll();
+}
+
+function bulkCategorise(ids){
+  const n = ids.length;
+  modal({ title:`Set the category on ${n} transaction${n===1?'':'s'}`,
+    sub:'Applies to everything currently selected.',
+    fields:[{ k:'category', label:'Category', type:'select', opts:CAT_OPTS.slice(1), v:'Other' }],
+    saveLabel:'Apply',
+    onSave(o){
+      const type = catType(o.category);
+      for (const id of ids){
+        const t = live('transactions').find(x=>x.id===id);
+        if (!t) continue;
+        t.category = o.category; t.type = type; t.updatedAt = now();
+      }
+      UI.dirty = true; scheduleSave(); UI.sel.clear();
+      toast(`${n} transaction${n===1?'':'s'} filed as ${o.category}`);
+      renderAll();
+    }});
 }
 
 function fillSelect(sel, pairs, keep){
@@ -3126,6 +3295,7 @@ function postDueRecurring(){
       r.lastPosted = date; r.updatedAt = now();
     }
   }
+  if (n) markEntry('recurring', n);
   UI.dirty = true; scheduleSave();
   toast(n ? `${n} recurring transaction${n===1?'':'s'} posted` : 'Nothing was due');
   renderAll();
@@ -4059,6 +4229,7 @@ function editTxn(t){
         amountAed: toBase(amt, o.currency), deleted:false };
       rec.hash = txnHash(rec);
       upsert('transactions', rec);
+      if (isNew) markEntry('manual', 1);
       if (o.rule && o.category){
         const key = normDesc(o.description).split(' ').slice(0,2).join(' ');
         if (key) upsert('rules', { id:uid(), match:key, category:o.category, type:catType(o.category), deleted:false });
@@ -4240,6 +4411,7 @@ function go(v){
 function renderAll(){
   try {
     nudgeBadge();
+    renderFreshness();
     if (UI.view === 'overview') renderOverview();
     else if (UI.view === 'ledger') renderLedger();
     else if (UI.view === 'recurring') renderRecurring();
@@ -4252,6 +4424,9 @@ function renderAll(){
       renderChangelog();
     }
     else if (UI.view === 'import'){
+      const through = ledgerThrough();
+      if (through) $('#importHint').innerHTML =
+        `Your ledger runs through <b>${esc(new Date(through).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'}))}</b>, so export from <b>${esc(nextImportFrom())}</b> onwards. Overlapping an earlier period is safe — duplicates are matched on date, amount and description and skipped.`;
       fillSelect($('#pasteAcct'), live('accounts').map(a=>[a.id,a.name]).concat(live('accounts').length?[]:[['','Create an account in Settings']]));
       renderManualForm();
     }
@@ -4277,12 +4452,42 @@ function wire(){
 
   // ledger
   ['fSearch','fCat','fAcct','fType','fFrom','fTo','fUncat'].forEach(id => {
-    const el = $('#'+id); el.oninput = () => { UI.rows = 60; renderLedger(); }; el.onchange = () => { UI.rows = 60; renderLedger(); };
+    const el = $('#'+id);
+    const redraw = () => { UI.rows = 60; renderLedger(); };   // the selection re-checks itself
+    el.oninput = redraw; el.onchange = redraw;
   });
   $('#clearF').onclick = () => { ['fSearch','fCat','fAcct','fType','fFrom','fTo','fUncat'].forEach(id=>$('#'+id).value=''); UI.rows=60; renderLedger(); };
   $('#moreRows').onclick = () => { UI.rows += 100; renderLedger(); };
   $('#addTxn').onclick = () => editTxn(null);
+  $('#selAll').onchange = e => {
+    const rows = filtered();
+    if (e.target.checked) rows.forEach(t => UI.sel.add(t.id)); else UI.sel.clear();
+    renderLedger();
+  };
+
+  let lastPick = null;
+  $('#ledTable').addEventListener('change', e => {
+    const cb = e.target.closest('.rowpick'); if (!cb) return;
+    const id = cb.dataset.id;
+    // shift-click picks everything between, the way a file list does
+    if (e.target._shift && lastPick && lastPick !== id){
+      const rows = filtered().slice(0, UI.rows).map(t => t.id);
+      const a = rows.indexOf(lastPick), b = rows.indexOf(id);
+      if (a > -1 && b > -1) rows.slice(Math.min(a,b), Math.max(a,b)+1)
+        .forEach(x => cb.checked ? UI.sel.add(x) : UI.sel.delete(x));
+    } else {
+      cb.checked ? UI.sel.add(id) : UI.sel.delete(id);
+    }
+    lastPick = id;
+    renderLedger();
+  });
+  $('#ledTable').addEventListener('click', e => {
+    const cb = e.target.closest('.rowpick');
+    if (cb) cb._shift = e.shiftKey;
+  }, true);
+
   $('#ledTable').onclick = e => {
+    if (e.target.closest('.rowpick')) return;
     const btn = e.target.closest('[data-act]'); if (!btn) return;
     const id = e.target.closest('tr').dataset.id;
     const t = live('transactions').find(x=>x.id===id); if (!t) return;
@@ -4437,7 +4642,12 @@ function wire(){
     else if (l.hasAttribute('data-signout')) $('#signOutBtn').onclick();
     else go(l.dataset.go);
   };
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#modalHost').innerHTML = ''; });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape'){
+      if ($('#modalHost').innerHTML) $('#modalHost').innerHTML = '';
+      else if (UI.sel.size && UI.view === 'ledger'){ UI.sel.clear(); renderLedger(); }
+    }
+  });
 }
 function download(blob, name){
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
