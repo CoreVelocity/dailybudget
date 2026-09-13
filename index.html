@@ -969,9 +969,13 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.18.1';
+const APP_VERSION = '1.18.2';
 const APP_BUILT   = '2026-09-13';
 const CHANGELOG = [
+  { v:'1.18.2', d:'2026-09-13', notes:[
+    'Costs covered and the horizon now come from the same calculation, so they cannot disagree',
+    'The Overview caption says plainly which months the charts use and which the averages use',
+    'Costs covered shows the monthly outgoings it is measured against, debt included' ]},
   { v:'1.18.1', d:'2026-09-13', notes:[
     'The independence horizon keeps the 100% line visible instead of burying it when coverage is already high',
     'Says "Already there" and how many times over your costs are covered, rather than naming this month as a crossing date',
@@ -2735,18 +2739,27 @@ function renderFreshness(){
 
 function renderOverview(){
   const b = baseline(), s = monthlySeries(UI.months);
-  const nw = netWorth(), cov = coverageNow();
+  const nw = netWorth();
   const proj = project();
+  const m0 = proj.months[0];
+  // the horizon and this figure must be the same number, so take both from the projection
+  const cov = m0 ? m0.coverage : coverageNow();
   const filled = s.filter(m => m.income || m.expense);
-  $('#ovPeriod').textContent = filled.length
-    ? `Averages from ${fullMonth(filled[0].key)} to ${fullMonth(filled[filled.length-1].key)} · ${live('transactions').length} transactions on file`
+  const win = baselineMonths();
+  // the range buttons change the charts; the averages always use complete months only
+  $('#ovPeriod').innerHTML = filled.length
+    ? `Charts show ${esc(fullMonth(filled[0].key))} to ${esc(fullMonth(filled[filled.length-1].key))}. `
+      + `Averages below use your last ${win.length} complete month${win.length===1?'':'s'}`
+      + (win.length ? ` — ${esc(fullMonth(win[0]))} to ${esc(fullMonth(win[win.length-1]))}` : '')
+      + ` · ${live('transactions').length} transactions on file`
     : 'Import a statement to bring this to life.';
 
   $('#ovStats').innerHTML = [
     { k:'Net worth', v: fmt(nw), s: `${fmt(assetTotal(),{compact:true})} assets less ${fmt(liabTotal(),{compact:true})} debt`, c: nw>=0?'pos':'neg' },
-    { k:'Monthly surplus', v: fmt(b.surplus), s: `${fmt(b.income,{compact:true})} in, ${fmt(b.expense,{compact:true})} out`, c: b.surplus>=0?'pos':'neg' },
+    { k:'Monthly surplus', v: fmt(b.surplus), s: `${fmt(b.income,{compact:true})} in, ${fmt(b.expense,{compact:true})} out${b.smoothed?' (smoothed)':''}`, c: b.surplus>=0?'pos':'neg' },
     { k:'Savings rate', v: b.rate.toFixed(0)+'%', s: b.rate>=30?'Strong':b.rate>=15?'Workable':'Needs attention', c: b.rate>=15?'pos':'neg' },
-    { k:'Costs covered', v: cov.toFixed(0)+'%', s: `by ${S().swr}% withdrawals from ${fmt(investedTotal(),{compact:true})}` },
+    { k:'Costs covered', v: cov.toFixed(0)+'%',
+      s: m0 ? `${fmt(m0.outgo,{compact:true})} a month of outgoings, incl. debt` : `at a ${S().swr}% withdrawal rate` },
     { k:'Debt-free', v: proj.debtFreeLabel, s: proj.debtFree ? 'at current payments' : (liabTotal()? 'no payments set' : 'nothing owed') }
   ].map(x => `<div class="stat ${x.c||''}"><k>${x.k}</k><v>${x.v}</v><small>${x.s}</small></div>`).join('');
 
