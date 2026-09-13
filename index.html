@@ -849,7 +849,9 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>Money you lend and borrow from people.</b> Two halves. The <b>balance</b> goes on the Balance sheet: money owed to you as an asset of kind <i>Money lent to someone</i>, money you owe as a liability of kind <i>Borrowed from someone</i>, named for the person. They then appear together in <i>Between you and other people</i>, with the net position. The <b>movements</b> go in the Ledger under <i>Lent to someone</i>, <i>Repaid to me</i>, <i>Borrowed from someone</i> and <i>Repaying a personal debt</i> — all transfers, so lending 50,000 doesn't appear as a month of wild spending and being repaid doesn't look like a bonus. Update the balance on the Balance sheet as amounts are repaid.</li>
           <li><b>Don't tick "counts toward independence" on money you have lent.</b> You cannot pay your rent with a repayment that may never arrive. Leave it off and the loan still counts in your net worth without inflating what your assets could cover.</li>
           <li><b>Credit card payments are transfers too.</b> The spending was recorded when you used the card. Categorise the repayment as <i>Credit card payment</i>.</li>
-          <li><b>Don't tick "counts toward independence" on your home.</b> You can't spend it without selling it. The same goes for your car and, usually, business equity.</li>
+          <li><b>Don't tick "counts toward independence" on the home you live in.</b> You can't spend it without selling it, and you'd then have to rent. The same goes for your car and, usually, business equity.</li>
+          <li><b>A property you let out is both an asset and a liability.</b> Put the flat in as an asset at its <i>market value</i>, not your equity, and the mortgage in as a liability at the balance outstanding. Net worth then shows the equity by subtraction, and it grows two ways: the value rises and the debt falls. Set the asset's <i>growth kept inside</i> to the capital appreciation you expect, and its <i>income it pays you</i> to the net rental yield — annual rent after service charges and agency fees, divided by the value. Unlike your home, a let property <b>should</b> count toward independence: the rent genuinely pays your bills, and coverage counts the real rent rather than a notional withdrawal.</li>
+          <li><b>If the rent already lands in an account you import</b>, leave the tick box <i>this income already appears in my imported transactions</i> on. Your measured income already contains the rent, and the plan would otherwise count it twice. Turn it off only for rent paid somewhere the tool never sees. The mortgage instalment needs no such care — categorise it as <i>Loan payment</i> and the liability schedule takes over from the average.</li>
           <li><b>Some PDFs are pictures, not text.</b> HSBC Premier statements are printed this way: the pages carry a bitmap of the statement and no text at all. The reader detects this and offers to recognise the words on your device. It takes about a minute per ten pages and is not perfect, so every row is checked against the running balance printed beside it and anything that fails is listed before you save. A CSV export from online banking is always more reliable when one is available.</li>
           <li><b>Three months of data is the minimum</b> before the baseline means anything. Six is better.</li>
           <li><b>Expected returns are your assumption, not a forecast.</b> Use the Conservative scenario as your working plan and treat the Aggressive one as upside.</li>
@@ -972,9 +974,13 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.20.0';
 const APP_BUILT   = '2026-09-13';
 const CHANGELOG = [
+  { v:'1.20.0', d:'2026-09-13', notes:[
+    'Income an asset pays you is no longer added twice when it already lands in an account you import',
+    'Rent from a property counts toward coverage as real rent rather than a notional withdrawal',
+    'Guidance for a mortgaged property you let out — asset and liability both, with the equity as the result' ]},
   { v:'1.19.0', d:'2026-09-13', notes:[
     'Money lent to and borrowed from people has its own place: categories for the movements, kinds for the balances, and a summary of who owes whom',
     'Lending and repaying no longer distort spending, income or the savings rate',
@@ -2524,6 +2530,10 @@ function assetPayoutMonthly(a){
 const payoutTotalMonthly = () => live('assets').reduce((t,a)=> t + assetPayoutMonthly(a), 0);
 const spendablePayoutMonthly = () => live('assets')
   .filter(a => a.payTo !== 'reinvest').reduce((t,a)=> t + assetPayoutMonthly(a), 0);
+/* payouts landing on top of what the statements already show */
+const extraPayoutMonthly = () => live('assets')
+  .filter(a => a.payTo !== 'reinvest' && a.yieldInIncome === false)
+  .reduce((t,a)=> t + assetPayoutMonthly(a), 0);
 
 /* Income you earn rather than own: salary, business drawings, rent, a pension.
    Not an asset, but it is what funds the plan, so it belongs on this page. */
@@ -2993,6 +3003,8 @@ function project(opt = {}){
     y: (+a.yield||0)/100/12,                       // paid out, not compounded
     every: PAY_EVERY[a.payFreq] ?? 0,
     reinvest: a.payTo === 'reinvest',
+    yAlready: a.yieldInIncome !== false,            // already inside your measured income
+    invested_: !!a.invested,
     accrued: 0
   }));
   if (!assets.length) assets = [{ id:'_v', v:0, r: Math.pow(1 + clamp(0.06+retAdj,-.5,.5), 1/12)-1,
@@ -3058,7 +3070,9 @@ function project(opt = {}){
       if (a.every && a.y){
         a.accrued += a.v * a.y;                       // interest builds up…
         if ((m + 1) % a.every === 0){                 // …and lands on its due month
-          if (a.reinvest) a.v += a.accrued; else payout += a.accrued;
+          if (a.reinvest) a.v += a.accrued;
+          // cash that already shows in your statements must not be added a second time
+          else if (!a.yAlready) payout += a.accrued;
           a.accrued = 0;
         }
       }
@@ -3306,7 +3320,9 @@ function renderIncome(){
              ? `<br><b style="color:var(--warn)">These differ from your measured income by ${(Math.abs(srcTotal-b.income)/b.income*100).toFixed(0)}%.</b> Worth checking you have listed everything, or that nothing is listed twice.`
              : ''}`
         : `The plan averages your last six complete months. Listing sources above does not change it — switch to them if you want to model a change in income.`}
-      ${payTotal ? `<br>Income your assets pay out is added on top either way, since it does not appear in the average until it lands.` : ''}
+      ${payTotal ? `<br>Your assets pay out <b>${fmt(payTotal)}</b> a month. ${extraPayoutMonthly() > 0
+          ? `Of that, <b>${fmt(extraPayoutMonthly())}</b> is added on top because you have marked it as not appearing in your imported transactions.`
+          : `All of it is already inside the income figure above, so it is not added again.`}` : ''}
     </div>`;
   $('#incMode').onchange = e => { set.incomeMode = e.target.value; set.updatedAt = now(); UI.dirty = true; scheduleSave(); renderAll(); };
 }
@@ -4319,7 +4335,7 @@ function editAsset(a){
   const isNew = !a;
   a = a || { id:uid(), name:'', klass:'Investments', value:0, currency:'AED', ret:6, contrib:0,
              contribFreq:'monthly', contribFrom:'', contribUntil:'', contribInSpending:true,
-             yield:0, payFreq:'none', payTo:'spend', invested:true, liquid:false };
+             yield:0, payFreq:'none', payTo:'spend', yieldInIncome:true, invested:true, liquid:false };
   modal({ title: isNew?'Add asset':'Edit asset',
     fields:[
       { k:'name', label:'Name', v:a.name, ph:'e.g. ADCB savings, or who owes you', half:1 },
@@ -4348,6 +4364,9 @@ function editAsset(a){
       { k:'payTo', label:'What happens to it', type:'select', v:a.payTo||'spend',
         opts:[['spend','Paid to me — it becomes cash I can spend or save'],
               ['reinvest','Rolled back in — the asset grows by it instead']] },
+      { k:'yieldInIncome', label:'This income already appears in my imported transactions',
+        type:'check', v:a.yieldInIncome !== false,
+        hint:'Rent or interest landing in an account you import is already in your measured income' },
       { k:'invested', label:'Counts toward independence (safe withdrawals draw on it)', type:'check', v:a.invested,
         hint:'Leave this off for money lent to someone — you cannot live off a repayment that may not come' },
       { k:'liquid', label:'Liquid — reachable within a week', type:'check', v:a.liquid }
