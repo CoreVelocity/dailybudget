@@ -1,7 +1,7 @@
 /* Independence — service worker
    The app is one HTML file, so "offline" only needs the shell plus the fonts and
    libraries it pulls in. Data already lives in local storage and OneDrive. */
-const VERSION = 'independence-v1.21.1';
+const VERSION = 'independence-v1.22.0';
 const SHELL = './';
 
 self.addEventListener('install', e => {
