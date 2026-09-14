@@ -14,6 +14,19 @@
 <meta name="theme-color" content="#F5F7FA" id="metaTheme">
 <script>
 /* runs before the stylesheet paints: no flash of the wrong theme */
+/* The browser offers to install once, early, and only once. If nothing is listening
+   at that moment the offer is gone — which is why this sits here and not in the app. */
+window.__installPrompt = null;
+window.__installed = false;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  window.__installPrompt = e;
+  document.dispatchEvent(new CustomEvent('install-available'));
+});
+window.addEventListener('appinstalled', function(){
+  window.__installed = true; window.__installPrompt = null;
+  document.dispatchEvent(new CustomEvent('install-done'));
+});
 (function(){
   try {
     var t = localStorage.getItem('independence:theme');
@@ -368,9 +381,9 @@ details p{font-size:13.5px;color:var(--muted);line-height:1.62;padding:0 0 14px 
 details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
 
 /* ══════════ reminder bell ══════════ */
-.bell{position:relative;width:38px;height:38px;border-radius:10px;border:1px solid var(--line2);
+.bell,.roundbtn{position:relative;width:38px;height:38px;border-radius:10px;border:1px solid var(--line2);
   background:rgba(var(--acc-rgb),.06);display:grid;place-items:center;color:var(--pearl);flex:none}
-.bell:hover{background:rgba(var(--acc-rgb),.11)}
+.bell:hover,.roundbtn:hover{background:rgba(var(--acc-rgb),.11)}
 .bell .bdot{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
   background:var(--coral);color:#fff;font-size:10.5px;font-weight:700;font-style:normal;display:grid;place-items:center;
   font-family:var(--f-body);border:2px solid #fff}
@@ -535,11 +548,11 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
     <div class="brand"><b>Independence</b><span>Finance Console</span><em id="railVer"></em></div>
     <button class="nav on" data-view="overview" data-primary><i>◐</i>Overview</button>
     <button class="nav" data-view="ledger" data-primary><i>≡</i>Ledger</button>
-    <button class="nav" data-view="import" data-primary><i>↧</i>Import</button>
+    <button class="nav" data-view="import"><i>↧</i>Import</button>
     <button class="nav" data-view="targets" data-primary><i>◎</i>Targets</button>
-    <button class="nav" data-view="plan" data-primary><i>◈</i>Plan</button>
+    <button class="nav" data-view="plan"><i>◈</i>Plan</button>
     <button class="nav" data-view="recurring"><i>↻</i>Recurring</button>
-    <button class="nav" data-view="balance"><i>⚖</i>Balance sheet</button>
+    <button class="nav" data-view="balance" data-primary><i>⚖</i>Balance</button>
     <button class="nav" data-view="guide"><i>?</i>How to use</button>
     <button class="nav" data-view="settings"><i>⚙</i>Settings</button>
     <button class="nav navmore" id="navMore"><i>⋯</i>More</button>
@@ -950,8 +963,9 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
           <li><b>Hosting.</b> Wherever you host this page, add that exact URL as a SPA redirect URI on the Azure app registration, and consent to Files.ReadWrite.All. Until then, <i>Work offline on this device</i> runs everything locally.</li>
           <li><b>Reminders</b> appear when you open the app. A single HTML file has no server, so nothing can reach you while it's closed. On a phone, add the page to your home screen and open it once a day.</li>
           <li><b>Removing a bad import.</b> Filter the Ledger to the period or account you want gone, tick the header box to take everything matching, and delete. You are told the count, the date range and the net amount before anything happens. Deleted rows are tombstoned rather than erased, so the deletion syncs to your other devices instead of the rows reappearing from a stale copy.</li>
+          <li><b>Scanning a receipt.</b> The <b>+</b> button offers <i>Type it in</i> or <i>Scan a receipt</i>. Scanning opens the camera, reads the photo on your device — nothing is uploaded — and fills in the merchant, the total and the date. It prefers a line that says TOTAL over one saying SUB TOTAL, and ignores the cash tendered and the change. It never saves by itself: the form opens for you to check the amount and set a category, because a receipt read by machine is a good first guess and no more. Best results come from a flat receipt in decent light.</li>
           <li><b>Knowing where the gap is.</b> The strip at the top of every page shows the date your ledger runs through and how many days behind that is, alongside when you last added anything and where it came from. It turns amber after three days and red after ten. The Import page names the exact date to export from, so you pick up precisely where you left off — and overlapping an earlier period costs nothing, since duplicates are matched and skipped.</li>
-          <li><b>Install it on your phone.</b> Open the page in the browser and take the Install prompt on the Overview, or in Safari tap Share then Add to Home Screen. It then opens full-screen with its own icon, works without a connection, and long-pressing the icon gives a shortcut straight to <i>Add a transaction</i>. On a phone the <b>+</b> button in the bottom corner does the same from anywhere in the app.</li>
+          <li><b>Install it on your phone.</b> Open the page in the browser and take the Install prompt on the Overview — or go to Settings → Install as an app, which always shows the right menu path for the browser you are in and whether offline support is running. It then opens full-screen with its own icon, works without a connection, and long-pressing the icon gives a shortcut straight to <i>Add a transaction</i>. On a phone the <b>+</b> button in the bottom corner does the same from anywhere in the app.</li>
           <li><b>Light or dark.</b> The switch sits at the foot of the sidebar, or next to the bell on a phone. It follows your system setting the first time and then remembers what you chose. The choice is kept on the device rather than in the synced file, so your phone and laptop can differ.</li>
           <li><b>Backups.</b> Settings → Download backup writes the whole file to disk. Restoring merges rather than overwrites, so nothing is lost.</li>
         </ul>
@@ -981,6 +995,10 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
             <button class="btn sm" id="addRule" style="margin-top:12px">Add rule</button>
           </div>
           <div class="card">
+            <h3>Install as an app</h3><div class="sub">Home-screen icon, full screen, works offline</div>
+            <div id="setInstall"></div>
+          </div>
+          <div class="card">
             <h3>Reminders</h3><div class="sub">A nudge to keep the data current</div>
             <div id="setRemind"></div>
           </div>
@@ -1001,12 +1019,14 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 </div>
 
 <button class="fab" id="fabAdd" title="Add a transaction">+</button>
+<input type="file" id="receiptInput" accept="image/*" capture="environment" class="hide">
 <button class="bell mobilebell" id="bellMob"></button>
-<button class="bell mobiletheme" id="themeMob"></button>
+<button class="roundbtn mobiletheme" id="themeMob"></button>
 <div class="sheet hide" id="moreSheet"><div class="sheetin">
   <b>Go to</b>
+  <button class="sheetlink" data-go="import"><i>↧</i>Import a statement</button>
+  <button class="sheetlink" data-go="plan"><i>◈</i>Five-year plan</button>
   <button class="sheetlink" data-go="recurring"><i>↻</i>Recurring</button>
-  <button class="sheetlink" data-go="balance"><i>⚖</i>Balance sheet</button>
   <button class="sheetlink" data-go="guide"><i>?</i>How to use this</button>
   <button class="sheetlink" data-go="settings"><i>⚙</i>Settings</button>
   <button class="sheetlink" data-theme-toggle><i>◑</i>Switch theme</button>
@@ -1022,9 +1042,18 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.21.1';
-const APP_BUILT   = '2026-09-13';
+const APP_VERSION = '1.22.0';
+const APP_BUILT   = '2026-09-14';
 const CHANGELOG = [
+  { v:'1.22.0', d:'2026-09-14', notes:[
+    'Photograph a receipt and the app reads the merchant, amount and date into the entry form',
+    'Fixed the duplicate notification icon on a phone — the theme button was being painted as a second bell',
+    'The catch-up prompt now remembers it was shown however you close it, and defaults to weekly',
+    'Import and the five-year plan moved into More, leaving four tabs on the bottom bar' ]},
+  { v:'1.21.2', d:'2026-09-14', notes:[
+    'The install offer is caught as the page loads, instead of being missed while signing in',
+    'Where a browser offers no install button, the exact menu path is given for that browser',
+    'Settings has a permanent Install panel showing offline status, and can bring back a dismissed prompt' ]},
   { v:'1.21.1', d:'2026-09-13', notes:[
     'Phone layout for the newer panels — category tiles two to a row, selection and freshness bars sized to fit',
     'The offline cache is tied to the release, so installed phones pick up a new build rather than serving the old one',
@@ -3949,7 +3978,7 @@ const daysBetween = (a,b) => Math.round((new Date(b) - new Date(a)) / 864e5);
 
 function remindCfg(){
   const s = S();
-  if (!s.remind) s.remind = { on:true, notify:false, snoozeUntil:null, lastNotified:null, everyDays:1, lastShown:null };
+  if (!s.remind) s.remind = { on:true, notify:false, snoozeUntil:null, lastNotified:null, everyDays:7, lastShown:null };
   return s.remind;
 }
 function saveRemind(){ S().updatedAt = now(); UI.dirty = true; scheduleSave(); }
@@ -4073,7 +4102,11 @@ function showNudges(manual){
     </div>
   </div></div>`;
 
-  const close = () => { host.innerHTML=''; nudgeBadge(); };
+  // however it is closed, remember it was shown — otherwise it reappears every visit
+  const close = () => {
+    if (!manual){ r.lastShown = now(); saveRemind(); }
+    host.innerHTML = ''; nudgeBadge();
+  };
   $('#nudgeList').onclick = e => {
     const b = e.target.closest('[data-n]'); if (!b) return;
     const n = list[+b.dataset.n];
@@ -4089,6 +4122,9 @@ function showNudges(manual){
   $('#snooze1').onclick = () => snooze(24);
   $('#nudgeDone').onclick = () => { r.lastShown = now(); saveRemind(); close(); };
   host.querySelector('.scrim').onclick = e => { if (e.target === host.querySelector('.scrim')) close(); };
+  // a tall list must not push the buttons off a phone screen
+  const sheet = host.querySelector('.modal');
+  if (sheet) sheet.querySelector('#nudgeList').style.cssText = 'max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch';
 }
 
 function maybeRemind(){
@@ -4128,6 +4164,34 @@ function notifyTick(){
 }
 
 /* ══════════════ reminder settings block ══════════════ */
+function renderInstallSettings(){
+  const host = $('#setInstall'); if (!host) return;
+  const inApp = standalone() || window.__installed;
+  const ready = !!(INSTALL_PROMPT || window.__installPrompt);
+  const swOn = 'serviceWorker' in navigator && !!navigator.serviceWorker.controller;
+
+  host.innerHTML = inApp
+    ? `<div class="insight g" style="border:none;padding-top:0"><div class="ic">✓</div><div>
+         <p>Running as an installed app.</p>
+         <small>Offline support is ${swOn ? 'active' : 'starting up — reload once to finish'}.</small></div></div>`
+    : `<div style="font-size:13px;color:var(--muted);line-height:1.6">${ready
+          ? 'Your browser can install this now.'
+          : `Your browser has not offered an install button. ${installHowTo()}`}</div>
+       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+         ${ready ? '<button class="btn pri sm" id="setInstallBtn">Install</button>' : ''}
+         ${installDismissed() ? '<button class="btn ghost sm" id="setInstallReset">Show the prompt again</button>' : ''}
+       </div>
+       <div style="font-size:11.5px;color:var(--dim);margin-top:12px;line-height:1.55">
+         Offline support ${swOn ? 'is active' : 'starts after one reload'} · ${live('transactions').length} transactions cached on this device.
+         An installed copy still syncs to OneDrive whenever it has a connection.
+       </div>`;
+  const b = $('#setInstallBtn');
+  if (b) b.onclick = async () => { if (await runInstall()) renderInstallSettings(); };
+  const r = $('#setInstallReset');
+  if (r) r.onclick = () => { try { localStorage.removeItem('independence:install-dismissed'); } catch(e){}
+                             showInstallBar(); renderInstallSettings(); toast('The prompt will show on the Overview again'); };
+}
+
 function renderRemindSettings(){
   const host = $('#setRemind'); if (!host) return;
   const r = remindCfg();
@@ -4666,7 +4730,7 @@ function renderAll(){
     else if (UI.view === 'targets') renderTargets();
     else if (UI.view === 'balance') renderBalance();
     else if (UI.view === 'plan') renderPlan();
-    else if (UI.view === 'settings'){ renderSettings(); renderRemindSettings(); }
+    else if (UI.view === 'settings'){ renderSettings(); renderInstallSettings(); renderRemindSettings(); }
     else if (UI.view === 'guide'){
       $('#verSub').innerHTML = `Running <b style="color:var(--sky)">v${esc(APP_VERSION)}</b>, built ${esc(APP_BUILT)}`;
       renderChangelog();
@@ -4706,7 +4770,7 @@ function wire(){
   });
   $('#clearF').onclick = () => { ['fSearch','fCat','fAcct','fType','fFrom','fTo','fUncat'].forEach(id=>$('#'+id).value=''); UI.rows=60; renderLedger(); };
   $('#moreRows').onclick = () => { UI.rows += 100; renderLedger(); };
-  $('#addTxn').onclick = () => editTxn(null);
+  $('#addTxn').onclick = () => addTransactionSheet();
   $('#selAll').onchange = e => {
     const rows = filtered();
     if (e.target.checked) rows.forEach(t => UI.sel.add(t.id)); else UI.sel.clear();
@@ -4868,7 +4932,9 @@ function wire(){
 
   // add a transaction from anywhere on a phone
   const fab = $('#fabAdd');
-  if (fab) fab.onclick = () => editTxn(null);
+  if (fab) fab.onclick = () => addTransactionSheet();
+  const rin = $('#receiptInput');
+  if (rin) rin.onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) handleReceipt(f); };
 
   // theme
   stampThemeButtons();
@@ -4969,34 +5035,61 @@ async function registerWorker(){
 const standalone = () =>
   window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-function wireInstall(){
-  const bar = $('#installBar');
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault(); INSTALL_PROMPT = e;
-    if (bar && !standalone() && !localStorage.getItem('independence:install-dismissed'))
-      bar.style.display = 'flex';
-  });
-  if (bar){
-    $('#installBtn').onclick = async () => {
-      if (!INSTALL_PROMPT){
-        // iOS gives no prompt — tell them where the button is instead
-        return toast('In Safari, tap Share then "Add to Home Screen"');
-      }
-      INSTALL_PROMPT.prompt();
-      const { outcome } = await INSTALL_PROMPT.userChoice;
-      INSTALL_PROMPT = null;
-      bar.style.display = 'none';
-      if (outcome === 'accepted') toast('Installed — look for it on your home screen');
-    };
-    $('#installNo').onclick = () => {
-      bar.style.display = 'none';
-      try { localStorage.setItem('independence:install-dismissed','1'); } catch(e){}
-    };
-    // iOS Safari: no event fires, so offer the instructions once
-    const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) && !window.MSStream;
-    if (iOS && !standalone() && !localStorage.getItem('independence:install-dismissed'))
-      bar.style.display = 'flex';
+const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) && !window.MSStream;
+const installDismissed = () => { try { return !!localStorage.getItem('independence:install-dismissed'); } catch(e){ return false; } };
+
+/* Not every browser offers a prompt. Safari never does, and Chrome and Edge only do
+   so once their own criteria are met — so say where the button is instead of nothing. */
+function installHowTo(){
+  const ua = navigator.userAgent;
+  if (isIOS()) return 'In Safari, tap <b>Share</b> then <b>Add to Home Screen</b>.';
+  if (/Android/.test(ua)) return 'In Chrome, tap the <b>⋮</b> menu then <b>Install app</b> or <b>Add to Home screen</b>.';
+  if (/Edg\//.test(ua)) return 'In Edge, use the <b>⋯</b> menu → <b>Apps</b> → <b>Install this site as an app</b>.';
+  if (/Chrome/.test(ua)) return 'In Chrome, use the install icon in the address bar, or <b>⋮</b> → <b>Cast, save and share</b> → <b>Install page as app</b>.';
+  if (/Safari/.test(ua)) return 'In Safari, use <b>File</b> → <b>Add to Dock</b>.';
+  return 'Use your browser menu and look for <b>Install</b> or <b>Add to Home Screen</b>.';
+}
+
+function showInstallBar(){
+  const bar = $('#installBar'); if (!bar) return;
+  if (standalone() || window.__installed || installDismissed()){ bar.style.display = 'none'; return; }
+  const ready = !!(INSTALL_PROMPT || window.__installPrompt);
+  bar.innerHTML = ready
+    ? `<span style="flex:1">Add Independence to your home screen — it opens like an app, works without a connection,
+         and gets a shortcut straight to <b>Add a transaction</b>.</span>
+       <button class="btn pri sm" id="installBtn">Install</button>
+       <button class="btn ghost sm" id="installNo">Not now</button>`
+    : `<span style="flex:1">Add it to your home screen and it opens like an app and works offline. ${installHowTo()}</span>
+       <button class="btn ghost sm" id="installNo">Got it</button>`;
+  bar.style.display = 'flex';
+  const go = $('#installBtn');
+  if (go) go.onclick = () => runInstall();
+  $('#installNo').onclick = () => {
+    bar.style.display = 'none';
+    try { localStorage.setItem('independence:install-dismissed','1'); } catch(e){}
+  };
+}
+
+async function runInstall(){
+  const p = INSTALL_PROMPT || window.__installPrompt;
+  if (!p){ toast('Your browser has no install button here — see the note on the Overview'); return false; }
+  p.prompt();
+  let outcome = 'dismissed';
+  try { ({ outcome } = await p.userChoice); } catch(e){}
+  INSTALL_PROMPT = null; window.__installPrompt = null;
+  if (outcome === 'accepted'){
+    toast('Installed — look for it on your home screen');
+    const bar = $('#installBar'); if (bar) bar.style.display = 'none';
   }
+  return outcome === 'accepted';
+}
+
+function wireInstall(){
+  INSTALL_PROMPT = window.__installPrompt;     // it may have arrived before the app started
+  showInstallBar();
+  // and it may still arrive a moment later
+  document.addEventListener('install-available', () => { INSTALL_PROMPT = window.__installPrompt; showInstallBar(); });
+  document.addEventListener('install-done', () => { const b = $('#installBar'); if (b) b.style.display='none'; renderSettings(); });
 }
 
 /* the app can be opened straight into a task from a home-screen shortcut */
@@ -5010,6 +5103,137 @@ function handleLaunchIntent(){
   if (params.toString()){
     // keep the address bar clean so a refresh does not repeat the action
     try { history.replaceState(null, '', location.pathname); } catch(e){}
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCANNING A RECEIPT
+   The phone camera plus the recogniser already used for image-only statements.
+   It fills the form in — it does not save anything by itself, because a receipt
+   read by machine is a good first guess and nothing more.
+   ══════════════════════════════════════════════════════════════ */
+const CUR_WORDS = { AED:/\b(AED|DHS?|DIRHAM)\b/i, USD:/\b(USD|\$)\b/i };
+
+/* Pull the few things that matter out of whatever the camera could read */
+function readReceipt(text){
+  const lines = String(text||'').split(/\r?\n/).map(l => l.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const joined = lines.join('\n');
+
+  // the total: prefer a line that says so, else the largest money-looking number
+  const money = /(\d{1,3}(?:[, ]\d{3})*(?:[.,]\d{2}))/;
+  let amount = null;
+  const totalLine = lines.find(l => /\b(grand\s*total|total\s*(amount|due|paid)?|amount\s*due|net\s*total|balance\s*due)\b/i.test(l)
+                                    && money.test(l) && !/sub\s*total/i.test(l));
+  if (totalLine){
+    const all = totalLine.match(new RegExp(money, 'g')) || [];
+    amount = parseAmount(all[all.length - 1]);
+  }
+  if (amount == null){
+    const cands = (joined.match(new RegExp(money, 'g')) || [])
+      .map(parseAmount).filter(v => v != null && v > 0 && v < 1e6);
+    if (cands.length) amount = Math.max(...cands);
+  }
+
+  // the date: the first thing on the receipt that parses as one
+  let date = null;
+  const dateRe = /\b(\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*[A-Za-z]{3,9}\s*\d{2,4})\b/g;
+  for (const m of joined.match(dateRe) || []){
+    const d = parseDate(m, 'auto');
+    if (d && d <= iso(addMonths(new Date(), 1))){ date = d; break; }
+  }
+
+  // the merchant: the first line with real words, before the address and the till codes
+  const merchant = lines.slice(0, 6)
+    .map(l => l.replace(/[^A-Za-z0-9&'’. -]/g,' ').replace(/\s+/g,' ').trim())
+    .find(l => l.length >= 3 && /[A-Za-z]{3}/.test(l) && !/^(tax|vat|trn|invoice|receipt|tel|date|time)\b/i.test(l));
+
+  let currency = 'AED';
+  for (const [code, re] of Object.entries(CUR_WORDS)) if (re.test(joined)) { currency = code; break; }
+
+  return { amount, date, merchant: merchant || '', currency, text: joined, lines: lines.length };
+}
+
+async function scanReceipt(file, onProgress){
+  if (!(await ensureTesseract()))
+    throw new Error('The text recogniser could not be loaded. Check your connection and try again.');
+  const bitmap = await createImageBitmap(file);
+  // downscale: a 12-megapixel photo is slow to read and no more accurate
+  const maxSide = 1600;
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  try { bitmap.close(); } catch(e){}
+
+  if (onProgress) onProgress('Reading the photo…');
+  const worker = await makeOcrWorker();
+  try {
+    const res = await worker.recognize(canvas);
+    return readReceipt(res?.data?.text || '');
+  } finally {
+    try { await worker.terminate(); } catch(e){}
+    try { canvas.width = canvas.height = 0; } catch(e){}
+  }
+}
+
+/* What the + button opens on a phone */
+function addTransactionSheet(){
+  const host = $('#modalHost');
+  const canScan = !!(window.File && window.createImageBitmap);
+  host.innerHTML = `<div class="scrim"><div class="modal" style="max-width:420px">
+    <h2>Add a transaction</h2>
+    <div class="sub">Key it in, or photograph a receipt and let the app read it</div>
+    <div style="display:flex;flex-direction:column;gap:9px">
+      <button class="btn pri" id="addManual" style="padding:14px">Type it in</button>
+      ${canScan ? `<button class="btn" id="addScan" style="padding:14px">Scan a receipt</button>` : ''}
+    </div>
+    ${canScan ? `<div style="font-size:11.5px;color:var(--dim);margin-top:12px;line-height:1.55">
+      The photo is read on your device and never uploaded. It fills the form in for you to check — the amount
+      and date are a good guess, not gospel.</div>` : ''}
+    <div class="mfoot"><button class="btn ghost" id="addCancel">Cancel</button></div>
+  </div></div>`;
+  const close = () => host.innerHTML = '';
+  $('#addCancel').onclick = close;
+  host.querySelector('.scrim').onclick = e => { if (e.target === host.querySelector('.scrim')) close(); };
+  $('#addManual').onclick = () => { close(); editTxn(null); };
+  const scan = $('#addScan');
+  if (scan) scan.onclick = () => { close(); $('#receiptInput').click(); };
+}
+
+async function handleReceipt(file){
+  const host = $('#modalHost');
+  host.innerHTML = `<div class="scrim"><div class="modal" style="max-width:420px">
+    <h2>Reading the receipt</h2><div class="sub" id="scanMsg">Starting the recogniser…</div>
+    <div class="bar" style="margin-top:16px"><i style="width:35%"></i></div>
+    <div style="font-size:12px;color:var(--dim);margin-top:12px">First use downloads the recogniser, about 15 MB.</div>
+  </div></div>`;
+  try {
+    const r = await scanReceipt(file, msg => { const el = $('#scanMsg'); if (el) el.textContent = msg; });
+    host.innerHTML = '';
+    if (r.amount == null && !r.merchant){
+      toast('Nothing readable in that photo — try better light, or type it in', true);
+      return editTxn(null);
+    }
+    // hand it to the normal form, pre-filled and open for correction
+    editTxn({
+      id: uid(),
+      date: r.date || iso(new Date()),
+      description: r.merchant || 'Receipt',
+      amount: r.amount != null ? -Math.abs(r.amount) : 0,
+      currency: r.currency,
+      accountId: live('accounts')[0]?.id || null,
+      category: null, type: 'expense',
+      note: 'Scanned receipt',
+      source: 'scan'
+    });
+    setTimeout(() => toast(`Read ${r.amount != null ? fmt(toBase(r.amount, r.currency)) : 'the merchant'} — check it before saving`), 350);
+  } catch(e){
+    console.error(e);
+    host.innerHTML = '';
+    toast(errText(e) || 'The photo could not be read', true);
+    editTxn(null);
   }
 }
 
