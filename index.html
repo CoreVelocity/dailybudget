@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -238,6 +237,13 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 td.pick{padding-left:13px;padding-right:0}
 input[type=checkbox].rowpick,#selAll{width:17px;height:17px;accent-color:var(--sky);cursor:pointer;margin:0}
 tr.picked{background:rgba(var(--acc-rgb),.09)!important}
+.monthpick{display:flex;align-items:center;gap:4px;border:1px solid var(--line2);border-radius:var(--rs);padding:3px 4px;background:var(--card)}
+.monthpick button.mv{width:28px;height:28px;border-radius:6px;border:1px solid transparent;color:var(--muted);display:grid;place-items:center;font-size:13px}
+.monthpick button.mv:hover{border-color:var(--sky);color:var(--sky)}
+.monthpick button.mv[disabled]{opacity:.35}
+.monthpick .mon{font-family:var(--f-num);font-size:12.5px;min-width:74px;text-align:center;color:var(--pearl)}
+.monthpick button.x{font-size:11.5px;color:var(--dim);padding:0 7px}
+.monthpick button.x:hover{color:var(--coral2)}
 .mcats{border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;background:var(--card);box-shadow:var(--card-edge)}
 .mcats .hd{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .mcats .hd h4{font-family:var(--f-dis);font-size:14px;margin:0}
@@ -388,6 +394,34 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   background:var(--coral);color:#fff;font-size:10.5px;font-weight:700;font-style:normal;display:grid;place-items:center;
   font-family:var(--f-body);border:2px solid #fff}
 .railbell{width:100%;height:34px;border-radius:var(--rs)}
+.railmin{position:absolute;top:18px;right:10px;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);
+  background:var(--card);color:var(--muted);display:grid;place-items:center;font-size:13px;line-height:1;z-index:3}
+.railmin:hover{border-color:var(--sky);color:var(--sky)}
+.rail{position:relative}
+
+/* collapsed: icons only, with the label on hover */
+body.railmin .app{grid-template-columns:62px 1fr}
+body.railmin .rail{padding:22px 8px}
+body.railmin .brand b,body.railmin .brand span,body.railmin .brand em{display:none}
+body.railmin .brand{padding:0 0 18px;min-height:24px}
+body.railmin .railmin{right:auto;left:50%;transform:translateX(-50%)}
+body.railmin .railmin span{display:block;transform:rotate(180deg)}
+body.railmin .nav{justify-content:center;padding:10px 0;gap:0;position:relative}
+body.railmin .nav .lbl{display:none}
+body.railmin .nav i{font-size:16px}
+body.railmin .nav::after{content:attr(data-label);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);
+  background:var(--toast-bg);color:var(--toast-fg);font-size:11.5px;padding:4px 9px;border-radius:6px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:.12s;z-index:40}
+body.railmin .nav:hover::after{opacity:1}
+body.railmin .themebtn,body.railmin #syncNow,body.railmin #signOutBtn,body.railmin #userLine{display:none}
+body.railmin .syncdot span{display:none}
+body.railmin .syncdot{justify-content:center;padding:0}
+
+/* the Setup page's own sub-navigation */
+.setupnav{display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.setupnav button{padding:9px 14px;font-size:13.5px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;border-radius:0;margin-bottom:-1px}
+.setupnav button.on{color:var(--sky);border-bottom-color:var(--sky)}
+.setupnav button:hover{color:var(--pearl)}
 .themebtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
 .fab{display:none;position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:58;
   width:56px;height:56px;border-radius:50%;font-size:30px;font-weight:300;line-height:1;
@@ -546,16 +580,16 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 <div class="app hide" id="app">
   <aside class="rail">
     <div class="brand"><b>Independence</b><span>Finance Console</span><em id="railVer"></em></div>
-    <button class="nav on" data-view="overview" data-primary><i>◐</i>Overview</button>
-    <button class="nav" data-view="ledger" data-primary><i>≡</i>Ledger</button>
-    <button class="nav" data-view="import"><i>↧</i>Import</button>
-    <button class="nav" data-view="targets" data-primary><i>◎</i>Targets</button>
-    <button class="nav" data-view="plan"><i>◈</i>Plan</button>
-    <button class="nav" data-view="recurring"><i>↻</i>Recurring</button>
-    <button class="nav" data-view="balance" data-primary><i>⚖</i>Balance</button>
-    <button class="nav" data-view="guide"><i>?</i>How to use</button>
-    <button class="nav" data-view="settings"><i>⚙</i>Settings</button>
-    <button class="nav navmore" id="navMore"><i>⋯</i>More</button>
+    <button class="railmin" id="railMin" title="Collapse the menu"><span>‹</span></button>
+    <button class="nav on" data-view="overview" data-primary data-label="Overview"><i>◐</i><span class="lbl">Overview</span></button>
+    <button class="nav" data-view="ledger" data-primary data-label="Ledger"><i>≡</i><span class="lbl">Ledger</span></button>
+    <button class="nav" data-view="import" data-label="Import"><i>↧</i><span class="lbl">Import</span></button>
+    <button class="nav" data-view="targets" data-primary data-label="Targets"><i>◎</i><span class="lbl">Targets</span></button>
+    <button class="nav" data-view="plan" data-label="Plan"><i>◈</i><span class="lbl">Plan</span></button>
+    <button class="nav" data-view="recurring" data-label="Recurring"><i>↻</i><span class="lbl">Recurring</span></button>
+    <button class="nav" data-view="balance" data-primary data-label="Balance"><i>⚖</i><span class="lbl">Balance</span></button>
+    <button class="nav" data-view="setup" data-label="Setup"><i>⚙</i><span class="lbl">Setup</span></button>
+    <button class="nav navmore" id="navMore" data-label="More"><i>⋯</i><span class="lbl">More</span></button>
     <div class="railfoot">
       <button class="btn ghost sm themebtn" id="themeDesk"></button>
       <button class="bell railbell" id="bellDesk"></button>
@@ -581,6 +615,10 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
             <button data-m="3">3M</button><button data-m="6" class="on">6M</button>
             <button data-m="12">12M</button><button data-m="0">All</button>
           </div>
+          <div class="seg" id="ovMonthSeg">
+            <button id="ovMonthBtn" title="Look at a single month">Month</button>
+          </div>
+          <div class="monthpick hide" id="ovMonthPick"></div>
           <div class="seg" id="curSeg">
             <button data-c="AED" class="on">AED</button><button data-c="USD">USD</button>
           </div>
@@ -672,6 +710,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 
     <!-- ═══════════ IMPORT ═══════════ -->
     <section class="view hide" id="v-import">
+      <div class="setupnav" data-setupnav></div>
       <div class="topbar">
         <div><div class="eyebrow">Get the data in</div><h1>Import</h1>
         <p id="importHint">Upload a bank export, paste rows straight from a statement, or key one in. Duplicates are matched on date, amount and description, so re-importing an overlapping file is safe.</p></div>
@@ -842,6 +881,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 
     <!-- ═══════════ GUIDE ═══════════ -->
     <section class="view hide" id="v-guide">
+      <div class="setupnav" data-setupnav></div>
       <div class="topbar">
         <div><div class="eyebrow">Manual</div><h1>How to use this</h1>
         <p>Start at the top. The first pass takes about twenty minutes and everything after that is a few minutes a week.</p></div>
@@ -877,8 +917,8 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 
       <div class="card" style="margin-bottom:14px">
         <h3>What each page is for</h3>
-        <details><summary>Overview</summary><p>Your standing right now. The <b>independence horizon</b> is the strip of sixty bars — one per month — showing what share of your living costs safe withdrawals from invested assets would cover. Where it crosses 100% is the date the money covers you. Below it, the insight panel reads your actual transactions and reports what it finds rather than offering generic advice.</p></details>
-        <details><summary>Ledger</summary><p>The panel at the top shows the month by category against the targets you set — green within, amber when the pace says you will go over, red once you have. Tap any one to filter the list to it, or step back a month to compare. Categories with no target appear greyed at the end with their average. Below it, every transaction, filterable by text, category, account, type and date. Export the filtered view as CSV any time. Tapping a category cell is the fastest way to teach the app your merchants. Tick the boxes on the left to work on several at once — shift-click picks a range, and the box in the header takes everything matching the filters, so you can filter to a bad import and remove it in one action. The selection follows your filters: narrow them and anything no longer shown drops out of the selection rather than being quietly deleted later.</p></details>
+        <details><summary>Overview</summary><p>Your standing right now. The range buttons set the window for the charts; <b>Month</b> switches to a single month instead — what came in, what went out, how it compares with your average, and where it went by category. Step back through earlier months with the arrows, or close it to return to the trend. The <b>independence horizon</b> is the strip of sixty bars — one per month — showing what share of your living costs safe withdrawals from invested assets would cover. Where it crosses 100% is the date the money covers you. Below it, the insight panel reads your actual transactions and reports what it finds rather than offering generic advice.</p></details>
+        <details><summary>Ledger</summary><p>The panel at the top shows the month by category against the targets you set, each tile naming the gap outright — <i>600 over</i> or <i>1,100 left</i>. Green within, amber when the pace says you will go over, red once you have. Tap any one to filter the list to it, or step back a month to compare. Categories with no target appear greyed at the end with their average. Below it, every transaction, filterable by text, category, account, type and date. Export the filtered view as CSV any time. Tapping a category cell is the fastest way to teach the app your merchants. Tick the boxes on the left to work on several at once — shift-click picks a range, and the box in the header takes everything matching the filters, so you can filter to a bad import and remove it in one action. The selection follows your filters: narrow them and anything no longer shown drops out of the selection rather than being quietly deleted later.</p></details>
         <details><summary>Import</summary><p>Three routes in. <b>Upload</b> takes a PDF, CSV or Excel statement — including PDFs that are pictures of a statement, where the words are recognised on your device first. A PDF is read directly — the text is pulled off the pages, the deposit and withdrawal columns are located so each amount gets the right sign, and running balances and reference numbers are discarded. Statements that print one transaction across several lines are handled too: each block starts at a date and takes its amount from wherever it lands, and when the statement omits a repeated date the previous one is carried forward. You see the extracted text as <i>date | description | amount</i> and can correct any line before anything is added. A spreadsheet asks you to map the columns instead. <b>Paste</b> takes rows copied from a PDF or online banking and picks out the date, description and amount, ignoring running balances. <b>Manual</b> is for cash and anything the bank feed misses. Duplicates are detected on date, amount and description, so re-importing an overlapping file is safe.</p></details>
         <details><summary>Recurring</summary><p>Fixed commitments that post themselves. Press <i>Post due items</i> and everything outstanding is written to the ledger. These form the fixed base of your plan.</p></details>
         <details><summary>Targets</summary><p>Two halves. <b>Sinking funds</b> for lumpy costs — set the amount and the date and the monthly figure is worked out. <b>Monthly targets</b> put a ceiling on everyday categories; the pale marker on each bar shows where you'd be if the month were spent evenly.</p></details>
@@ -974,6 +1014,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 
     <!-- ═══════════ SETTINGS ═══════════ -->
     <section class="view hide" id="v-settings">
+      <div class="setupnav" data-setupnav></div>
       <div class="topbar"><div><div class="eyebrow">Configuration</div><h1>Settings</h1></div></div>
       <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start" id="setCols">
         <div class="grid" style="gap:14px">
@@ -1027,8 +1068,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
   <button class="sheetlink" data-go="import"><i>↧</i>Import a statement</button>
   <button class="sheetlink" data-go="plan"><i>◈</i>Five-year plan</button>
   <button class="sheetlink" data-go="recurring"><i>↻</i>Recurring</button>
-  <button class="sheetlink" data-go="guide"><i>?</i>How to use this</button>
-  <button class="sheetlink" data-go="settings"><i>⚙</i>Settings</button>
+  <button class="sheetlink" data-go="setup"><i>⚙</i>Setup</button>
   <button class="sheetlink" data-theme-toggle><i>◑</i>Switch theme</button>
   <button class="sheetlink" data-sync><i>⟳</i>Sync now</button>
   <button class="sheetlink" data-signout><i>⏻</i>Sign out</button>
@@ -1042,9 +1082,14 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.22.0';
-const APP_BUILT   = '2026-09-14';
+const APP_VERSION = '1.23.0';
+const APP_BUILT   = '2026-10-04';
 const CHANGELOG = [
+  { v:'1.23.0', d:'2026-10-04', notes:[
+    'The side menu collapses to icons, and remembers that on each device',
+    'Overview can show a single month instead of the trend, stepping back through earlier ones',
+    'Import, Settings and How to use are now three tabs of one Setup page',
+    'Category tiles state the gap to target outright, and the Targets page uses the same compact tiles' ]},
   { v:'1.22.0', d:'2026-09-14', notes:[
     'Photograph a receipt and the app reads the merchant, amount and date into the entry form',
     'Fixed the duplicate notification icon on a phone — the theme button was being painted as a second bell',
@@ -1220,7 +1265,7 @@ function blankData(){
 let DATA = blankData();
 let UI = {
   view:'overview', months:6, cur:'AED', rows:60,
-  scenario:'base', dials:{ extraSave:0, retAdj:0, cutPct:0, debtExtra:0 }, payoffExtra:0, sel:new Set(), catMonth:null,
+  scenario:'base', dials:{ extraSave:0, retAdj:0, cutPct:0, debtExtra:0 }, payoffExtra:0, sel:new Set(), catMonth:null, lastSetup:'import', ovMonth:null,
   impTab:'file', staged:null, dirty:false, online:false, account:null
 };
 
@@ -2842,6 +2887,12 @@ function renderFreshness(){
 }
 
 function renderOverview(){
+  // a single month, when you want to look at one rather than the trend
+  const mv = UI.ovMonth;
+  if (mv) return renderOverviewMonth(mv);
+  $('#ovMonthPick').classList.add('hide');
+  $('#ovMonthSeg').classList.remove('hide');
+
   const b = baseline(), s = monthlySeries(UI.months);
   const nw = netWorth();
   const proj = project();
@@ -2851,6 +2902,10 @@ function renderOverview(){
   const filled = s.filter(m => m.income || m.expense);
   const win = baselineMonths();
   // the range buttons change the charts; the averages always use complete months only
+  const mb = $('#ovMonthBody'); if (mb) mb.classList.add('hide');
+  const hz = $('#hzBars').closest('.horizon'); if (hz) hz.classList.remove('hide');
+  $('#ovCols').classList.remove('hide');
+
   $('#ovPeriod').innerHTML = filled.length
     ? `Charts show ${esc(fullMonth(filled[0].key))} to ${esc(fullMonth(filled[filled.length-1].key))}. `
       + `Averages below use your last ${win.length} complete month${win.length===1?'':'s'}`
@@ -2891,6 +2946,72 @@ function renderOverview(){
       <div class="mt"><span>${c.share.toFixed(0)}% of spending</span><span>${fmt(c.sum,{compact:true})} total</span></div>
     </div>`).join('') : emptyBox('No categorised spending in this window.');
 }
+
+/* One month on its own: what came in, what went out, and where it went.
+   The projection stays out of it — a single month says nothing about five years. */
+function renderOverviewMonth(mk){
+  const nowKey = monthKey(iso(new Date()));
+  $('#ovMonthSeg').classList.add('hide');
+  const pick = $('#ovMonthPick');
+  pick.classList.remove('hide');
+  pick.innerHTML = `<button class="mv" data-mv="-1" title="Previous month">‹</button>
+    <span class="mon">${esc(monthLabel(mk))}</span>
+    <button class="mv" data-mv="1" ${mk >= nowKey ? 'disabled' : ''} title="Next month">›</button>
+    <button class="x" data-mv="off" title="Back to the trend">✕</button>`;
+  pick.onclick = e => {
+    const b = e.target.closest('[data-mv]'); if (!b) return;
+    if (b.dataset.mv === 'off'){ UI.ovMonth = null; renderOverview(); return; }
+    const next = monthKey(iso(addMonths(new Date(mk + '-01'), +b.dataset.mv)));
+    if (next > nowKey) return;
+    UI.ovMonth = next; renderOverview();
+  };
+
+  const txns = live('transactions').filter(t => monthKey(t.date) === mk);
+  const income = txns.filter(isEarn).reduce((a,t)=>a+Math.abs(t.amountAed),0);
+  const spend  = txns.filter(isSpend).reduce((a,t)=>a+Math.abs(t.amountAed),0);
+  const b = baseline();
+  const vs = (v, avg) => avg > 0 ? `${v>=avg?'+':'−'}${fmt(Math.abs(v-avg),{compact:true})} vs average` : '';
+
+  $('#ovPeriod').innerHTML = `A single month — ${esc(fullMonth(mk))} · ${txns.length} transactions`
+    + (mk === nowKey ? ' · still running' : '');
+
+  $('#ovStats').innerHTML = [
+    { k:'Came in', v: fmt(income), s: vs(income, b.income), c: 'pos' },
+    { k:'Went out', v: fmt(spend), s: vs(spend, b.expense), c: 'neg' },
+    { k:'Kept', v: fmt(income-spend), s: income>0?`${((income-spend)/income*100).toFixed(0)}% of what came in`:'', c:(income-spend)>=0?'pos':'neg' },
+    { k:'Transactions', v: String(txns.length), s: `${txns.filter(t=>!t.category).length} uncategorised` },
+    { k:'Biggest line', v: (()=>{ const c=monthCats(mk)[0]; return c?fmt(c.sum,{compact:true}):'—'; })(),
+      s: (()=>{ const c=monthCats(mk)[0]; return c?c.cat:''; })() }
+  ].map(x=>`<div class="stat ${x.c||''}"><k>${x.k}</k><v>${x.v}</v>${x.s?`<small>${x.s}</small>`:''}</div>`).join('');
+
+  // the horizon is a five-year view, so it has no place in a single month
+  $('#hzBars').closest('.horizon').classList.add('hide');
+  $('#ovCols').classList.add('hide');
+
+  let host = $('#ovMonthBody');
+  if (!host){
+    host = document.createElement('div');
+    host.id = 'ovMonthBody';
+    $('#v-overview').appendChild(host);
+  }
+  host.classList.remove('hide');
+  const rows = targetRows(mk).filter(r => r.actual > 0 || r.target != null);
+  host.innerHTML = `<div class="card"><h3>Where it went in ${esc(fullMonth(mk))}</h3>
+    <div class="sub">Against the targets you have set</div>
+    ${rows.length ? `<div class="mgrid">${rows.map(r => targetCell(r)).join('')}</div>`
+                  : emptyBox('Nothing recorded in this month.')}</div>`;
+  host.querySelectorAll('.mcell').forEach(el => el.onclick = () => {
+    go('ledger');
+    const [y,m] = mk.split('-').map(Number);
+    setTimeout(()=>{ $('#fCat').value = el.dataset.cat; $('#fFrom').value = `${mk}-01`;
+      $('#fTo').value = iso(new Date(y, m, 0)); UI.rows = 60; renderLedger(); }, 60);
+  });
+}
+
+const monthCats = mk => {
+  const m = spendByCatForMonths([mk]);
+  return [...m.entries()].map(([cat,sum])=>({cat,sum})).sort((a,b)=>b.sum-a.sum);
+};
 
 function renderHorizon(p){
   const bars = p.months.slice(0, 60);
@@ -2973,6 +3094,23 @@ function renderLedger(){
   renderSelection(rows);
 }
 
+/* One compact tile per category. The gap between target and actual is the number
+   people look for, so it is stated outright rather than implied by a bar. */
+function targetCell(r){
+  const cls = r.target == null ? 'none' : r.status === 'over' ? 'over' : r.status === 'pace' ? 'pace' : '';
+  const w = r.target ? clamp(r.actual / r.target * 100, 0, 100) : 0;
+  const gap = r.target == null ? null : r.target - r.actual;     // positive = still have room
+  const gapTxt = gap == null ? `no target · ${fmt(r.avg)}/mo avg`
+    : gap < 0 ? `<b>${fmt(-gap)} over</b>`
+    : `<b>${fmt(gap)} left</b>${r.settled === false && r.status === 'pace' ? ` · heading for ${fmt(r.projected)}` : ''}`;
+  return `<div class="mcell ${cls}" data-cat="${esc(r.cat)}" title="Show these in the ledger">
+    <div class="c">${esc(r.cat)}</div>
+    <div class="v">${fmt(r.actual)}${r.target!=null?` <s>/ ${fmt(r.target)}</s>`:''}</div>
+    <div class="tb"><i style="width:${w}%"></i>${r.target!=null && r.settled===false?`<u style="left:${clamp(r.pace*100,0,100)}%"></u>`:''}</div>
+    <div class="f">${gapTxt}</div>
+  </div>`;
+}
+
 /* A month at a glance: what each category took, against the ceiling you set.
    Kept deliberately small — it answers "anything running hot?" and nothing more. */
 function renderLedgerCats(){
@@ -2999,24 +3137,12 @@ function renderLedgerCats(){
   host.innerHTML = `
     <div class="hd">
       <h4>${esc(fullMonth(mk))}</h4>
-      <span style="font-size:12px;color:var(--dim)">${fmt(totalA)} spent${totalT?` · ${fmt(totalT)} targeted`:''}
-        ${over?`· <b style="color:var(--coral2)">${over} over</b>`:totalT?`· <b style="color:var(--good)">all within</b>`:''}</span>
+      <span style="font-size:12px;color:var(--dim)">${fmt(totalA)} spent${totalT?` · ${fmt(totalT)} targeted · <b style="color:${totalT-totalA>=0?'var(--good)':'var(--coral2)'}">${totalT-totalA>=0?fmt(totalT-totalA)+' under':fmt(totalA-totalT)+' over'}</b>`:''}
+        ${over?`· ${over} categor${over===1?'y':'ies'} over`:''}</span>
       <div class="nav">${monthNav(mk, nowKey)}</div>
     </div>
     <div class="mgrid">
-      ${withSpend.slice(0, 12).map(r => {
-        const cls = r.target == null ? 'none' : r.status === 'over' ? 'over' : r.status === 'pace' ? 'pace' : '';
-        const w = r.target ? clamp(r.actual / r.target * 100, 0, 100) : 0;
-        const foot = r.target == null ? `no target · ${fmt(r.avg)}/mo avg`
-          : r.over > 0 ? `${fmt(r.over)} over`
-          : r.settled ? `${fmt(-r.over)} left` : `${fmt(-r.over)} left · heading for ${fmt(r.projected)}`;
-        return `<div class="mcell ${cls}" data-cat="${esc(r.cat)}" title="Show these in the ledger">
-          <div class="c">${esc(r.cat)}</div>
-          <div class="v">${fmt(r.actual)}${r.target!=null?` <s>/ ${fmt(r.target)}</s>`:''}</div>
-          <div class="tb"><i style="width:${w}%"></i>${r.target!=null && r.settled===false?`<u style="left:${clamp(r.pace*100,0,100)}%"></u>`:''}</div>
-          <div class="f">${foot}</div>
-        </div>`;
-      }).join('')}
+      ${withSpend.slice(0, 12).map(targetCell).join('')}
     </div>
     ${withSpend.length > 12 ? `<div style="font-size:11.5px;color:var(--dim);margin-top:9px">Showing the 12 largest of ${withSpend.length}.</div>` : ''}`;
 
@@ -3861,26 +3987,19 @@ function renderTargets(){
   /* --- category targets --- */
   const d = new Date();
   $('#tgMonth').textContent = `${fullMonth(monthKey(iso(d)))} · day ${d.getDate()} of ${new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()}`;
-  $('#targetList').innerHTML = rows.length ? rows.map(r => {
-    const mtag = r.managed ? '<span class="tag m">from a fund</span>' : '';
-    if (r.target == null) return `<div class="catrow" data-cat="${esc(r.cat)}">
-      <div class="nm" style="color:var(--muted)">${esc(r.cat)} ${mtag}</div>
-      <div class="vl" style="color:var(--dim)">${fmt(r.avg)}<span style="font-size:11px">/mo ${r.managed?'steady':'avg'}</span></div>
-      <div class="mt"><span style="color:var(--dim)">no target set</span>
-      <span><button class="btn ghost sm" data-act="set">Set target</button></span></div></div>`;
-    const w = clamp(r.actual / r.target * 100, 0, 100);
-    const paceW = clamp(r.pace * 100, 0, 100);
-    const col = r.status === 'over' ? 'x' : '';
-    return `<div class="catrow" data-cat="${esc(r.cat)}" data-id="${r.id||''}">
-      <div class="nm">${esc(r.cat)} ${mtag} ${r.status==='over'?'<span class="tag x">over</span>':r.status==='pace'?'<span class="tag" style="background:rgba(var(--warn-rgb),.10);color:var(--warn);border-color:rgba(var(--warn-rgb),.28)">on pace to go over</span>':'<span class="tag g">within</span>'}</div>
-      <div class="vl">${fmt(r.actual)} <span style="color:var(--dim);font-size:11.5px">/ ${fmt(r.target)}</span></div>
-      <div class="bar" style="position:relative"><i class="${col}" style="width:${w}%"></i>
-        <span style="position:absolute;left:${paceW}%;top:-2px;bottom:-2px;width:1px;background:var(--pace)" title="where you'd be if spending evenly"></span></div>
-      <div class="mt">
-        <span>${r.over > 0 ? `<b style="color:var(--coral2)">${fmt(r.over)} over</b>` : `${fmt(-r.over)} left`} · ${fmt(r.avg)}/mo ${r.managed?'steady':'average'}${r.settled && r.over <= 0 ? ` · heading for ${fmt(r.projected)}` : ''}</span>
-        <span><button class="btn ghost sm" data-act="set">Edit</button>${r.id?`<button class="btn ghost sm" data-act="clear" style="color:var(--coral2)">✕</button>`:''}</span></div>
-    </div>`;
-  }).join('') : emptyBox('Import some transactions and your categories will appear here to set targets against.');
+  const tgWith = rows.filter(r => r.target != null);
+  const noT   = rows.filter(r => r.target == null && r.actual > 0);
+  const tgTot = tgWith.reduce((t,r)=>t+r.target,0), acTot = tgWith.reduce((t,r)=>t+r.actual,0);
+
+  $('#targetList').innerHTML = rows.length ? `
+    ${tgWith.length ? `<div class="mgrid">${tgWith.map(r => targetCell(r) ).join('')}</div>
+      <div style="font-size:12px;color:var(--dim);margin-top:11px">
+        ${fmt(acTot)} of ${fmt(tgTot)} used ·
+        <b style="color:${tgTot-acTot>=0?'var(--good)':'var(--coral2)'}">${tgTot-acTot>=0?fmt(tgTot-acTot)+' left':fmt(acTot-tgTot)+' over'}</b>
+        · tap a tile to edit its target</div>` : ''}
+    ${noT.length ? `<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:16px 0 8px">No target set</div>
+      <div class="mgrid">${noT.slice(0,12).map(r => targetCell(r)).join('')}</div>` : ''}`
+    : emptyBox('Import some transactions and your categories will appear here to set targets against.');
 }
 
 function smoothedActualMonthly(){
@@ -4712,10 +4831,17 @@ function quickCat(t){
 }
 
 /* ══════════════ ROUTING + RENDER ══════════════ */
+const SETUP_VIEWS = ['import','settings','guide'];
+const SETUP_LABEL = { import:'Import', settings:'Settings', guide:'How to use' };
+
 function go(v){
+  if (v === 'setup') v = UI.lastSetup || 'import';        // the group opens where you left it
+  if (SETUP_VIEWS.includes(v)) UI.lastSetup = v;
   UI.view = v;
   $('#moreSheet').classList.add('hide');
-  $$('.nav').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  const group = SETUP_VIEWS.includes(v) ? 'setup' : v;
+  $$('.nav').forEach(b => b.classList.toggle('on', b.dataset.view === v || b.dataset.view === group));
+  renderSetupNav();
   $$('.view').forEach(s => s.classList.toggle('hide', s.id !== 'v-' + v));
   window.scrollTo({ top:0, behavior:'auto' });
   renderAll();
@@ -4755,7 +4881,9 @@ function wire(){
   $$('.nav').forEach(b => b.onclick = () => go(b.dataset.view));
 
   $('#ovRange').onclick = e => { const b = e.target.closest('button'); if (!b) return;
-    UI.months = +b.dataset.m; $$('#ovRange button').forEach(x=>x.classList.toggle('on', x===b)); renderOverview(); };
+    UI.months = +b.dataset.m; UI.ovMonth = null;
+    $$('#ovRange button').forEach(x=>x.classList.toggle('on', x===b)); renderOverview(); };
+  $('#ovMonthBtn').onclick = () => { UI.ovMonth = monthKey(iso(new Date())); renderOverview(); };
   $('#curSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return;
     UI.cur = b.dataset.c; $$('#curSeg button').forEach(x=>x.classList.toggle('on', x===b)); renderAll(); };
   $('#scenSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return;
@@ -4866,11 +4994,10 @@ function wire(){
     else if (confirm('Delete this fund?')) { softDelete('funds', id); renderTargets(); }
   };
   $('#targetList').onclick = e => {
-    const btn = e.target.closest('[data-act]'); if (!btn) return;
-    const box = e.target.closest('[data-cat]');
-    const cat = box.dataset.cat, id = box.dataset.id || null;
-    if (btn.dataset.act === 'set') editTarget(cat, id);
-    else if (id && confirm('Remove the target for ' + cat + '?')) { softDelete('targets', id); renderTargets(); }
+    const box = e.target.closest('[data-cat]'); if (!box) return;
+    const cat = box.dataset.cat;
+    const existing = live('targets').find(t => t.category === cat);
+    editTarget(cat, existing ? existing.id : null);
   };
 
   // balance
@@ -4935,6 +5062,11 @@ function wire(){
   if (fab) fab.onclick = () => addTransactionSheet();
   const rin = $('#receiptInput');
   if (rin) rin.onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) handleReceipt(f); };
+
+  // the menu can be narrowed to icons
+  const rm = $('#railMin');
+  if (rm) rm.onclick = toggleRailMin;
+  try { applyRailMin(localStorage.getItem(RAIL_KEY) === '1'); } catch(e){}
 
   // theme
   stampThemeButtons();
@@ -5096,7 +5228,7 @@ function wireInstall(){
 function handleLaunchIntent(){
   let params;
   try { params = new URLSearchParams(location.search); } catch(e){ return; }
-  const VIEWS = ['overview','ledger','import','targets','plan','recurring','balance','guide','settings'];
+  const VIEWS = ['overview','ledger','import','targets','plan','recurring','balance','guide','settings','setup'];
   const view = params.get('view');
   if (view && VIEWS.includes(view)) go(view);
   if (params.get('add') === '1') setTimeout(() => editTxn(null), 250);
@@ -5237,6 +5369,15 @@ async function handleReceipt(file){
   }
 }
 
+/* Import, Settings and How to use are one place now — three tabs of the same page */
+function renderSetupNav(){
+  $$('[data-setupnav]').forEach(host => {
+    host.innerHTML = SETUP_VIEWS.map(v =>
+      `<button data-sv="${v}" class="${UI.view === v ? 'on' : ''}">${esc(SETUP_LABEL[v])}</button>`).join('');
+    host.onclick = e => { const b = e.target.closest('[data-sv]'); if (b) go(b.dataset.sv); };
+  });
+}
+
 /* ══════════════ THEME ══════════════
    Both palettes live in one stylesheet; a data-theme attribute picks one. The choice
    is kept on the device rather than in the synced file, because which theme suits you
@@ -5257,6 +5398,15 @@ function applyTheme(t, animate){
   renderAll();                     // charts are drawn with the palette, so redraw them
 }
 function toggleTheme(){ applyTheme(currentTheme() === 'dark' ? 'light' : 'dark', true); }
+
+const RAIL_KEY = 'independence:rail-min';
+function applyRailMin(min){
+  document.body.classList.toggle('railmin', !!min);
+  try { localStorage.setItem(RAIL_KEY, min ? '1' : '0'); } catch(e){}
+  const b = $('#railMin');
+  if (b) b.title = min ? 'Expand the menu' : 'Collapse the menu';
+}
+function toggleRailMin(){ applyRailMin(!document.body.classList.contains('railmin')); }
 
 function stampThemeButtons(){
   const dark = currentTheme() === 'dark';
