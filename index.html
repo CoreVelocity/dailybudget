@@ -394,28 +394,28 @@ details p b{color:var(--pearl)} details p i{color:var(--sky);font-style:normal}
   background:var(--coral);color:#fff;font-size:10.5px;font-weight:700;font-style:normal;display:grid;place-items:center;
   font-family:var(--f-body);border:2px solid #fff}
 .railbell{width:100%;height:34px;border-radius:var(--rs)}
-.railmin{position:absolute;top:18px;right:10px;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);
+.railtoggle{position:absolute;top:18px;right:10px;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);
   background:var(--card);color:var(--muted);display:grid;place-items:center;font-size:13px;line-height:1;z-index:3}
-.railmin:hover{border-color:var(--sky);color:var(--sky)}
+.railtoggle:hover{border-color:var(--sky);color:var(--sky)}
 .rail{position:relative}
 
 /* collapsed: icons only, with the label on hover */
-body.railmin .app{grid-template-columns:62px 1fr}
-body.railmin .rail{padding:22px 8px}
-body.railmin .brand b,body.railmin .brand span,body.railmin .brand em{display:none}
-body.railmin .brand{padding:0 0 18px;min-height:24px}
-body.railmin .railmin{right:auto;left:50%;transform:translateX(-50%)}
-body.railmin .railmin span{display:block;transform:rotate(180deg)}
-body.railmin .nav{justify-content:center;padding:10px 0;gap:0;position:relative}
-body.railmin .nav .lbl{display:none}
-body.railmin .nav i{font-size:16px}
-body.railmin .nav::after{content:attr(data-label);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);
+body.nav-min .app{grid-template-columns:62px 1fr}
+body.nav-min .rail{padding:22px 8px}
+body.nav-min .brand b,body.nav-min .brand span,body.nav-min .brand em{display:none}
+body.nav-min .brand{padding:0 0 18px;min-height:24px}
+body.nav-min .railtoggle{right:auto;left:50%;transform:translateX(-50%)}
+body.nav-min .railtoggle span{display:block;transform:rotate(180deg)}
+body.nav-min .nav{justify-content:center;padding:10px 0;gap:0;position:relative}
+body.nav-min .nav .lbl{display:none}
+body.nav-min .nav i{font-size:16px}
+body.nav-min .nav::after{content:attr(data-label);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);
   background:var(--toast-bg);color:var(--toast-fg);font-size:11.5px;padding:4px 9px;border-radius:6px;white-space:nowrap;
   opacity:0;pointer-events:none;transition:.12s;z-index:40}
-body.railmin .nav:hover::after{opacity:1}
-body.railmin .themebtn,body.railmin #syncNow,body.railmin #signOutBtn,body.railmin #userLine{display:none}
-body.railmin .syncdot span{display:none}
-body.railmin .syncdot{justify-content:center;padding:0}
+body.nav-min .nav:hover::after{opacity:1}
+body.nav-min .themebtn,body.nav-min #syncNow,body.nav-min #signOutBtn,body.nav-min #userLine{display:none}
+body.nav-min .syncdot span{display:none}
+body.nav-min .syncdot{justify-content:center;padding:0}
 
 /* the Setup page's own sub-navigation */
 .setupnav{display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -580,7 +580,7 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 <div class="app hide" id="app">
   <aside class="rail">
     <div class="brand"><b>Independence</b><span>Finance Console</span><em id="railVer"></em></div>
-    <button class="railmin" id="railMin" title="Collapse the menu"><span>‹</span></button>
+    <button class="railtoggle" id="railMin" title="Collapse the menu"><span>‹</span></button>
     <button class="nav on" data-view="overview" data-primary data-label="Overview"><i>◐</i><span class="lbl">Overview</span></button>
     <button class="nav" data-view="ledger" data-primary data-label="Ledger"><i>≡</i><span class="lbl">Ledger</span></button>
     <button class="nav" data-view="import" data-label="Import"><i>↧</i><span class="lbl">Import</span></button>
@@ -1082,9 +1082,11 @@ html.theming *{transition:background-color .22s ease, border-color .22s ease, co
 /* ══════════════════════════════════════════════════════════════
    VERSION — bump this on every release, newest entry first
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.23.1';
 const APP_BUILT   = '2026-10-04';
 const CHANGELOG = [
+  { v:'1.23.1', d:'2026-10-04', notes:[
+    'Fixed the blank screen when collapsing the menu — the state class and the button class shared a name, so the page itself was being styled as the button' ]},
   { v:'1.23.0', d:'2026-10-04', notes:[
     'The side menu collapses to icons, and remembers that on each device',
     'Overview can show a single month instead of the trend, stepping back through earlier ones',
@@ -5401,12 +5403,12 @@ function toggleTheme(){ applyTheme(currentTheme() === 'dark' ? 'light' : 'dark',
 
 const RAIL_KEY = 'independence:rail-min';
 function applyRailMin(min){
-  document.body.classList.toggle('railmin', !!min);
+  document.body.classList.toggle('nav-min', !!min);
   try { localStorage.setItem(RAIL_KEY, min ? '1' : '0'); } catch(e){}
   const b = $('#railMin');
   if (b) b.title = min ? 'Expand the menu' : 'Collapse the menu';
 }
-function toggleRailMin(){ applyRailMin(!document.body.classList.contains('railmin')); }
+function toggleRailMin(){ applyRailMin(!document.body.classList.contains('nav-min')); }
 
 function stampThemeButtons(){
   const dark = currentTheme() === 'dark';
